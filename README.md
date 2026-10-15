@@ -11,8 +11,10 @@ afgelopen 12 maanden.
 
 ```bash
 npm install
-npm run dev          # http://localhost:3000
-npm test             # 46 unit/integratietests (Vitest)
+cp .env.example .env.local   # optioneel: sleutels en database
+npm run db:migrate           # alleen als je DATABASE_URL gebruikt
+npm run dev                  # http://localhost:3000
+npm test             # 52 unit/integratietests (Vitest)
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -31,6 +33,7 @@ app/
     candles/[type]/[symbol]    OHLCV + indicator-overlays per tijdsframe (1H/1D/1W/1M/1Y)
     quotes, market, search     Koersen, marktoverzicht, autocomplete
     ai-summary                 Optionele Claude-samenvatting (ANTHROPIC_API_KEY)
+    watchlist, portfolio, sync Opslag in de database (Prisma)
 lib/
   indicators/                  Pure wiskunde: SMA/EMA, RSI (Wilder), MACD, Bollinger + squeeze,
                                ATR, crossovers (golden/death), pivots, swing S/R, Fibonacci,
@@ -39,7 +42,9 @@ lib/
   engine/                      technical.ts · scoring.ts (beslissingsmatrix) · tradePlan.ts ·
                                backtest.ts · analyze.ts (orchestrator)
   nlp/sentiment.ts             Financieel keyword-lexicon met negaties → bullish/bearish/neutraal
-  store/                       Zustand (watchlist, portfolio, UI) met LocalStorage-persistentie
+  store/                       Zustand (watchlist, portfolio, UI) + server-sync
+  db.ts, server/               Prisma-client, anoniem profiel (cookie), zod-validatie
+prisma/                        schema.prisma + migraties
 components/                    UI (Tailwind 4, Radix, Framer Motion, lightweight-charts, Recharts)
 tests/                         Vitest
 ```
@@ -86,7 +91,27 @@ risk/reward. Shorts worden berekend door het prijsvlak te spiegelen.
 (fundamentals/sentiment zijn historisch niet beschikbaar). Instap bij TA-score ≥ +20, uitstap ≤ −10
 of 2×ATR stop, uitvoering op de open van de volgende bar, 0,1% kosten per kant.
 
-## Opslag
+## Opslag (Prisma)
 
-Watchlist en portfolio staan in LocalStorage (Zustand `persist`). Er is bewust (nog) geen database;
-de stores zijn zo opgezet dat een Prisma/PostgreSQL-backend later achter dezelfde interface kan.
+Watchlist en portfolio worden opgeslagen in een database via **Prisma 7** (standaard SQLite via
+`@prisma/adapter-better-sqlite3`). Zonder `DATABASE_URL` werkt alles gewoon in LocalStorage.
+
+```bash
+# .env.local
+DATABASE_URL="file:./prisma/dev.db"
+
+npm run db:migrate       # migraties toepassen (prisma migrate deploy)
+npm run db:migrate:dev   # nieuwe migratie maken na een schemawijziging
+npm run db:studio        # data bekijken in Prisma Studio
+```
+
+- **Geen login nodig:** elke browser krijgt een anoniem profiel via een httpOnly-cookie (`br_profile`).
+  Data van verschillende browsers is gescheiden; wie de cookie wist, begint met een nieuw profiel.
+- **Sync:** de Zustand-stores blijven de snelle lokale cache; wijzigingen gaan optimistisch naar
+  `/api/watchlist` en `/api/portfolio`. Mislukt een request, dan wordt de lijst opnieuw van de
+  server geladen. Bestaande LocalStorage-data wordt bij de eerste keer eenmalig geïmporteerd (`/api/sync`).
+- **Zonder database** geven de API's een 503 en blijft de app in LocalStorage-modus. De UI toont
+  steeds waar de data staat ("opgeslagen in de database" / "in je browser").
+- **PostgreSQL:** zet in `prisma/schema.prisma` de provider op `postgresql`, gebruik
+  `@prisma/adapter-pg` in `lib/db.ts` en genereer de migraties opnieuw. SQLite is niet geschikt
+  voor serverless hosting zonder persistente schijf.
