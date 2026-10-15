@@ -1,0 +1,56 @@
+"use client";
+import { Star } from "lucide-react";
+import { motion } from "framer-motion";
+import type { Analysis } from "@/types";
+import { formatCompact, formatPct, formatPrice } from "@/lib/format";
+import { useWatchlist } from "@/lib/store/watchlist";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+
+export function AssetHeader({ a }: { a: Analysis }) {
+  const { toggle, items } = useWatchlist();
+  const watched = items.some((i) => i.symbol === a.asset.symbol && i.type === a.asset.type);
+  const up = a.quote.changePct24h >= 0;
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="font-mono text-2xl font-bold tracking-tight sm:text-3xl">{a.asset.symbol}</h1>
+          <Badge tone={a.asset.type === "crypto" ? "hold" : "accent"}>{a.asset.type === "crypto" ? "Crypto" : "Aandeel"}</Badge>
+          {a.asset.exchange && <Badge>{a.asset.exchange}</Badge>}
+          <button
+            onClick={() => toggle({ symbol: a.asset.symbol, name: a.asset.name, type: a.asset.type })}
+            aria-label={watched ? "Verwijder van watchlist" : "Voeg toe aan watchlist"}
+            className="rounded-md p-1.5 hover:bg-panel-2"
+          >
+            <Star className={cn("h-5 w-5", watched ? "fill-hold text-hold" : "text-muted")} />
+          </button>
+        </div>
+        <p className="truncate text-sm text-muted">{a.asset.name}</p>
+      </div>
+      <div className="flex flex-wrap items-end gap-6">
+        <div className="text-right">
+          <motion.div
+            key={a.quote.price}
+            initial={{ opacity: 0.4 }}
+            animate={{ opacity: 1 }}
+            className="font-mono text-3xl font-bold tabular"
+          >
+            {formatPrice(a.quote.price, a.asset.currency)}
+          </motion.div>
+          <div className={cn("font-mono text-sm tabular", up ? "text-bull" : "text-bear")}>
+            {up ? "▲" : "▼"} {formatPrice(Math.abs(a.quote.change24h), a.asset.currency)} ({formatPct(a.quote.changePct24h / 100, 2, true)}) 24u
+          </div>
+        </div>
+        <dl className="hidden grid-cols-3 gap-x-6 gap-y-1 text-xs lg:grid">
+          <dt className="text-muted">24u hoog</dt>
+          <dt className="text-muted">24u laag</dt>
+          <dt className="text-muted">{a.quote.marketCap ? "Marktkap." : "Volume"}</dt>
+          <dd className="font-mono tabular">{formatPrice(a.quote.high24h, a.asset.currency)}</dd>
+          <dd className="font-mono tabular">{formatPrice(a.quote.low24h, a.asset.currency)}</dd>
+          <dd className="font-mono tabular">{formatCompact(a.quote.marketCap ?? a.quote.volume24h)}</dd>
+        </dl>
+      </div>
+    </div>
+  );
+}
