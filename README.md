@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 112 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 121 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -134,6 +134,13 @@ browser (`/api/chat`, NDJSON).
 - Kosten: ± $0,05 per vraag. Daglimieten: `CHAT_PER_USER_DAILY` (standaard 20) en `CHAT_GLOBAL_DAILY` (standaard 100),
   geteld in Postgres (`ChatUsage`). Met `CHAT_ACCESS_CODE` is de assistent alleen bruikbaar met een code.
 - Het gesprek staat in de browser; alleen de laatste 12 berichten (als tekst) gaan mee naar de API.
+
+## Quiz van de dag
+
+Op de startpagina en op `/quiz` staat elke dag één vraag over beleggen of crypto, met een weetje in gewone taal.
+De vraag wisselt om middernacht Nederlandse tijd en is voor iedereen dezelfde (`lib/quiz/questions.ts`); alle
+vragen komen aan de beurt voordat er een terugkomt. Antwoorden, score en reeks (dagen op rij gespeeld) worden
+lokaal in de browser bewaard.
 
 ## Opslag (Prisma + PostgreSQL)
 
