@@ -143,12 +143,15 @@ describeDb("Portfolio API", () => {
     const { GET, POST } = await import("@/app/api/portfolio/route");
     const profile = profileFrom(await GET(req("/api/portfolio")));
     const p = position({ stopLoss: 140, target1: 165, target2: 180 });
+    const longPos = position({ symbol: "BTC", type: "crypto", stopLoss: 70000, target1: null, target2: null, horizon: "long" });
+    await POST(req("/api/portfolio", { method: "POST", cookie: profile, body: longPos }));
     await POST(req("/api/portfolio", { method: "POST", cookie: profile, body: p }));
     const manual = position();
     await POST(req("/api/portfolio", { method: "POST", cookie: profile, body: manual }));
     const rows = (await (await GET(req("/api/portfolio", { cookie: profile }))).json()).positions;
-    expect(rows.find((r: { id: string }) => r.id === p.id)).toMatchObject({ stopLoss: 140, target1: 165, target2: 180 });
-    expect(rows.find((r: { id: string }) => r.id === manual.id)).toMatchObject({ stopLoss: null, target1: null, target2: null });
+    expect(rows.find((r: { id: string }) => r.id === p.id)).toMatchObject({ stopLoss: 140, target1: 165, target2: 180, horizon: "short" });
+    expect(rows.find((r: { id: string }) => r.id === manual.id)).toMatchObject({ stopLoss: null, target1: null, target2: null, horizon: "short" });
+    expect(rows.find((r: { id: string }) => r.id === longPos.id)).toMatchObject({ stopLoss: 70000, target1: null, horizon: "long" });
   });
 
   it("weigert ongeldige posities", async () => {

@@ -57,6 +57,7 @@ export function HoldingsAdvice() {
                     {p.symbol}
                   </Link>
                   {advice && <SellAdviceBadge action={advice.action} />}
+                  <span className="text-[10px] uppercase tracking-wide text-muted">{p.horizon === "long" ? "lange termijn" : "korte termijn"}</span>
                 </div>
                 <p className="text-xs text-muted">
                   {Number(p.quantity.toPrecision(6))} × {formatPrice(p.buyPrice, p.currency)} · {p.buyDate}
@@ -72,9 +73,10 @@ export function HoldingsAdvice() {
                 </p>
                 {p.stopLoss && (
                   <p className="mt-1 font-mono text-[11px] text-muted tabular">
-                    stop {formatPrice(p.stopLoss, p.currency)}
-                    {advice?.toStopPct != null && ` (${formatPct(advice.toStopPct, 1)} ruimte)`} · doel 1 {formatPrice(p.target1, p.currency)} · doel 2{" "}
-                    {formatPrice(p.target2, p.currency)}
+                    verkopen onder {formatPrice(p.stopLoss, p.currency)}
+                    {advice?.toStopPct != null && ` (${formatPct(advice.toStopPct, 1)} ruimte)`}
+                    {p.target1 ? ` · doel 1 ${formatPrice(p.target1, p.currency)}` : ""}
+                    {p.target2 ? ` · doel 2 ${formatPrice(p.target2, p.currency)}` : ""}
                   </p>
                 )}
               </div>

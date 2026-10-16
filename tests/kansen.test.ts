@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { sellAdvice } from "@/lib/engine/sellAdvice";
-import { pickOpportunities, mapLimit, getSignals } from "@/lib/engine/signals";
+import { qualifies, mapLimit, getSignals, buildOpportunities } from "@/lib/engine/signals";
+import { analyzeAsset } from "@/lib/engine/analyze";
 import type { SignalRow } from "@/types";
 
 beforeAll(() => {
@@ -58,30 +59,47 @@ const row = (over: Partial<SignalRow>): SignalRow => ({
   longTerm: { advice: "HOLD", score: 0 },
   tradePlan: { direction: "long", entryLow: 9, entryHigh: 10, stopLoss: 8, target1: 12, target2: 14, riskReward1: 1.5, riskReward2: 3, riskPct: 0.1, rationale: [] },
   reasons: [],
-  explanation: { summary: "", pros: [], cons: [] },
   pricesLive: true,
   mockSources: [],
   ...over,
 });
 
 describe("Koopkansen", () => {
-  it("toont alleen koopsignalen met een long-plan, gesorteerd op score", () => {
-    const picked = pickOpportunities(
-      [
-        row({ symbol: "A", shortTerm: { advice: "BUY", score: 20, confidence: 50 } }),
-        row({ symbol: "B", shortTerm: { advice: "STRONG_BUY", score: 60, confidence: 70 } }),
-        row({ symbol: "C", shortTerm: { advice: "HOLD", score: 5, confidence: 50 } }),
-        row({ symbol: "D", shortTerm: { advice: "SELL", score: -30, confidence: 50 } }),
-      ],
-      false,
-    );
-    expect(picked.map((r) => r.symbol)).toEqual(["B", "A"]);
+  it("korte termijn: alleen koopsignalen met een long-plan", () => {
+    expect(qualifies(row({}), "short", false)).toBe(true);
+    expect(qualifies(row({ shortTerm: { advice: "STRONG_BUY", score: 60, confidence: 70 } }), "short", false)).toBe(true);
+    expect(qualifies(row({ shortTerm: { advice: "HOLD", score: 5, confidence: 50 } }), "short", false)).toBe(false);
+    const shortPlan = { ...row({}).tradePlan, direction: "short" as const };
+    expect(qualifies(row({ tradePlan: shortPlan }), "short", false)).toBe(false);
+  });
+
+  it("lange termijn: positief lange-termijnsignaal, niet als het korte-termijnsignaal op verkopen staat", () => {
+    const lt = { advice: "BUY" as const, score: 30 };
+    expect(qualifies(row({ longTerm: lt, shortTerm: { advice: "HOLD", score: 0, confidence: 50 } }), "long", false)).toBe(true);
+    expect(qualifies(row({ longTerm: lt, shortTerm: { advice: "SELL", score: -20, confidence: 50 } }), "long", false)).toBe(false);
+    expect(qualifies(row({ longTerm: { advice: "HOLD", score: 5 } }), "long", false)).toBe(false);
   });
 
   it("raadt nooit assets aan waarvan de koersen alleen mock-data zijn", () => {
-    const mockRow = row({ symbol: "M", pricesLive: false });
-    expect(pickOpportunities([mockRow], false)).toEqual([]);
-    expect(pickOpportunities([mockRow], true)).toHaveLength(1);
+    const mockRow = row({ pricesLive: false, longTerm: { advice: "BUY", score: 30 } });
+    expect(qualifies(mockRow, "short", false)).toBe(false);
+    expect(qualifies(mockRow, "long", false)).toBe(false);
+    expect(qualifies(mockRow, "short", true)).toBe(true);
+  });
+
+  it("bouwt kansen per termijn, gesorteerd op score en met een passend plan", async () => {
+    const list = await Promise.all(["BTC", "ETH", "SOL"].map((s) => analyzeAsset(s, "crypto")));
+    const nvda = await analyzeAsset("NVDA", "stock");
+    const { short, long } = buildOpportunities([...list, nvda], true);
+    for (const [ops, horizon] of [[short, "short"], [long, "long"]] as const) {
+      for (let i = 1; i < ops.length; i++) expect(ops[i].score).toBeLessThanOrEqual(ops[i - 1].score);
+      for (const o of ops) {
+        expect(o.horizon).toBe(horizon);
+        expect(o.plan.stopLoss).toBeLessThan(o.plan.entryLow);
+        if (horizon === "long") expect(o.plan.target1).toBeNull();
+        else expect(o.plan.target1!).toBeGreaterThan(o.plan.entryHigh);
+      }
+    }
   });
 
   it("mapLimit respecteert de volgorde en het maximum aantal gelijktijdige taken", async () => {
@@ -103,5 +121,15 @@ describe("Koopkansen", () => {
     expect(btc.symbol).toBe("BTC");
     expect(btc.tradePlan.stopLoss).toBeGreaterThan(0);
     expect(btc.reasons.length).toBeLessThanOrEqual(3);
+  });
+});
+
+describe("Verkoopadvies lange termijn", () => {
+  it("heeft geen koersdoelen maar wel een noodrem en volgt het lange-termijnsignaal", () => {
+    const p = { buyPrice: 100, stopLoss: 75, target1: null, target2: null, horizon: "long" as const };
+    expect(sellAdvice(p, 150, { advice: "BUY" }).action).toBe("HOLD");
+    expect(sellAdvice(p, 150, { advice: "BUY" }).reason).toMatch(/Lange termijn/);
+    expect(sellAdvice(p, 74, { advice: "BUY" }).action).toBe("SELL");
+    expect(sellAdvice(p, 120, { advice: "SELL" }).action).toBe("SELL");
   });
 });

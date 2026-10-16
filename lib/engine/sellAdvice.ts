@@ -5,6 +5,7 @@ export interface HeldPosition {
   stopLoss?: number | null;
   target1?: number | null;
   target2?: number | null;
+  horizon?: "short" | "long";
 }
 
 /**
@@ -15,6 +16,7 @@ export interface HeldPosition {
  *  4. Koers op of boven koersdoel 1           → DEELS WINST NEMEN, stop naar instapprijs
  *  5. Anders                                  → HOUDEN
  * Posities zonder plan (handmatig ingevoerd) krijgen alleen het signaaladvies.
+ * Voor lange-termijnposities moet de aanroeper het lange-termijnsignaal meegeven.
  */
 export function sellAdvice(p: HeldPosition, price: number, signal: { advice: Advice } | null): SellAdvice {
   const rel = (level: number | null | undefined, sign: 1 | -1) =>
@@ -48,6 +50,9 @@ export function sellAdvice(p: HeldPosition, price: number, signal: { advice: Adv
       title: "Deels winst nemen",
       reason: `Koersdoel 1 bereikt (${pnlTxt}). Verkoop bijvoorbeeld de helft en zet je stop-loss op je instapprijs.`,
     };
+  }
+  if (p.horizon === "long") {
+    return { ...base, action: "HOLD", title: "Houden", reason: `Lange termijn: blijf houden zolang het signaal positief is. Resultaat tot nu toe ${pnlTxt}.` };
   }
   const plan = p.stopLoss || p.target1 ? "" : " (geen plan vastgelegd, alleen het signaal telt)";
   return { ...base, action: "HOLD", title: "Houden", reason: `Geen verkoopsignaal${plan}. Resultaat tot nu toe ${pnlTxt}.` };

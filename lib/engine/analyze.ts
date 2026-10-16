@@ -6,7 +6,7 @@ import { getCryptoFearGreed, getStockFearGreed } from "@/lib/api/sentiment";
 import { getNews } from "@/lib/api/news";
 import { getMacro } from "@/lib/api/macro";
 import { findInUniverse } from "@/lib/api/universe";
-import { cached } from "@/lib/api/http";
+import { cached, mockMode } from "@/lib/api/http";
 import { assertResolvable } from "@/lib/api/guard";
 import { getLivePrice } from "@/lib/api/livePrices";
 import { applyLivePrice } from "./live";
@@ -91,10 +91,19 @@ export async function analyzeAsset(rawSymbol: string, type: AssetType): Promise<
   const newsScore = Math.round(aggregateSentiment(news.items) * 100) / 100;
 
   // --- Pijlers & beslissing ---------------------------------------------
+  // Alleen echte data telt mee in de score. Mock-data (fallback) wordt nog wel getoond,
+  // maar nooit gebruikt om iets aan te raden — behalve in expliciete demo-modus.
+  const usable = (source: DataSource) => source !== "mock" || mockMode();
+  const sentiment = sentimentFactors(fearGreed, newsScore, news.live || mockMode() ? news.items.length : 0, macro, type, symbol).filter(
+    (f) => f.id !== "fng" || usable(fearGreed.source),
+  );
   const pillars: Record<Pillar, PillarScore> = {
     technical: buildPillar("technical", technicalFactors(series, candles.length - 1, technical)),
-    fundamental: buildPillar("fundamental", fundamentalFactors(fundamentals, technical.price)),
-    sentiment: buildPillar("sentiment", sentimentFactors(fearGreed, newsScore, news.items.length, macro, type, symbol)),
+    fundamental: buildPillar(
+      "fundamental",
+      usable(fundamentals.source) ? fundamentalFactors(fundamentals, technical.price, mockMode()) : [],
+    ),
+    sentiment: buildPillar("sentiment", sentiment),
     risk: buildPillar("risk", riskFactors(risk, type)),
   };
 

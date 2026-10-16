@@ -26,6 +26,7 @@ export const positionInput = z.object({
   stopLoss: z.number().positive().finite().nullish(),
   target1: z.number().positive().finite().nullish(),
   target2: z.number().positive().finite().nullish(),
+  horizon: z.enum(["short", "long"]).default("short"),
 });
 
 export const importInput = z.object({

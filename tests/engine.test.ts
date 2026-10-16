@@ -175,3 +175,13 @@ describe("Crypto fundamentals", () => {
     expect(mvrvZProxy([1, 2, 3])).toBeNull();
   });
 });
+
+describe("Alleen echte data telt mee", () => {
+  it("geschatte netwerkactiviteit telt niet mee in de score (alleen in demo-modus)", async () => {
+    const { mockCryptoFundamentals } = await import("@/lib/api/mock");
+    const f = mockCryptoFundamentals("BTC", 80000, 0.5);
+    expect(f.network.source).toBe("mock");
+    expect(fundamentalFactors(f, 80000).some((x) => x.id === "network")).toBe(false);
+    expect(fundamentalFactors(f, 80000, true).some((x) => x.id === "network")).toBe(true);
+  });
+});

@@ -45,6 +45,8 @@ model Position {
   stopLoss  Float?
   target1   Float?
   target2   Float?
+  /// "short" (weken) of "long" (maanden tot jaren): bepaalt welk signaal het verkoopadvies volgt
+  horizon   String   @default("short")
   createdAt DateTime @default(now())
 
   @@index([profileId])
