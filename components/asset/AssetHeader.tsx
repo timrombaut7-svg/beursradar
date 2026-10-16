@@ -1,5 +1,6 @@
 "use client";
-import { Star } from "lucide-react";
+import Link from "next/link";
+import { Sparkles, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Analysis } from "@/types";
 import { formatCompact, formatPct, formatPrice } from "@/lib/format";
@@ -25,6 +26,12 @@ export function AssetHeader({ a }: { a: Analysis }) {
           >
             <Star className={cn("h-5 w-5", watched ? "fill-hold text-hold" : "text-muted")} />
           </button>
+          <Link
+            href={`/assistent?vraag=${encodeURIComponent(`Wat denk je van ${a.asset.name} (${a.asset.symbol})? Zou ik nu kopen?`)}`}
+            className="inline-flex items-center gap-1 rounded-md border border-accent/40 bg-accent/10 px-2 py-1 text-xs font-medium text-accent hover:bg-accent/20"
+          >
+            <Sparkles className="h-3.5 w-3.5" /> Vraag de AI
+          </Link>
         </div>
         <p className="truncate text-sm text-muted">{a.asset.name}</p>
       </div>
