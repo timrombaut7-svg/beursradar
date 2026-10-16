@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 121 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 134 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -134,6 +134,23 @@ browser (`/api/chat`, NDJSON).
 - Kosten: ± $0,05 per vraag. Daglimieten: `CHAT_PER_USER_DAILY` (standaard 20) en `CHAT_GLOBAL_DAILY` (standaard 100),
   geteld in Postgres (`ChatUsage`). Met `CHAT_ACCESS_CODE` is de assistent alleen bruikbaar met een code.
 - Het gesprek staat in de browser; alleen de laatste 12 berichten (als tekst) gaan mee naar de API.
+
+## Betrouwbaarheid van de tips
+
+- **Alleen echte data telt.** Mock-data (fallback als een bron onbereikbaar is) wordt nooit gebruikt om iets
+  aan te raden. Rente en inflatie komen live uit FRED (met `FRED_API_KEY` via de API, anders via de openbare
+  CSV-download); zonder FRED tellen ze niet mee.
+- **Historische toets** (`lib/engine/evidence.ts`). Elke koopkans wordt getoetst op ± 5 jaar koershistorie van
+  die asset: op elke dag waarop het technische signaal ook "kopen" gaf, wordt hetzelfde soort plan gesimuleerd
+  (korte termijn: stop en eerste doel op dezelfde ATR-afstand als nu, max. 40 dagen; lange termijn: ± 3 maanden
+  met dezelfde stop-breedte). Geen look-ahead, geen overlappende trades, 0,1% kosten per kant. Een tip wordt
+  alleen getoond als het signaal gemiddeld winst gaf, vaak genoeg raak was **én** beter deed dan op een
+  willekeurige dag instappen. Afgekeurde koopsignalen staan met reden onder de lijst.
+- **Scorebord** (`/api/track-record`). Elke getoonde tip wordt in de database bewaard (model `Tip`) en achteraf
+  nagekeken met de echte koersen ná het moment van de tip: doel gehaald, stop-loss geraakt, of de balans na de
+  maximale termijn.
+
+Geen enkel model kan de toekomst voorspellen: de toets laat zien wat in het verleden werkte, niet wat gaat komen.
 
 ## Quiz van de dag
 

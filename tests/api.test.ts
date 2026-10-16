@@ -77,3 +77,16 @@ describe("Fallback-veiligheid", () => {
     expect(c[c.length - 1].close).toBeCloseTo(2432.5, 1);
   });
 });
+
+describe("Betrouwbare bronnen", () => {
+  it("leest de openbare FRED-CSV en slaat ontbrekende waarden over", async () => {
+    const { parseFredCsv } = await import("@/lib/api/macro");
+    expect(parseFredCsv("observation_date,DGS10\n2026-10-12,.\n2026-10-13,5.21\r\n2026-10-14,5.19\n")).toEqual([5.21, 5.19]);
+  });
+
+  it("keurt een korte crypto-reeks niet af als er precies zoveel dagen gevraagd zijn", async () => {
+    const { minBars } = await import("@/lib/api/crypto");
+    expect(minBars({ binance: "1d", seconds: 86400, bars: 30 })).toBe(30);
+    expect(minBars({ binance: "1d", seconds: 86400, bars: 730 })).toBe(50);
+  });
+});

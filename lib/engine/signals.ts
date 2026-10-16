@@ -27,6 +27,7 @@ export function toSignalRow(a: Analysis): SignalRow {
     mockSources: Object.entries(a.dataSources)
       .filter(([k, v]) => v === "mock" && k !== "macro")
       .map(([k]) => k),
+    evidence: a.evidence,
   };
 }
 
@@ -55,12 +56,20 @@ export async function getSignals(assets: { symbol: string; type: AssetType }[]):
 
 const isBuy = (advice: string) => advice === "BUY" || advice === "STRONG_BUY";
 
-/** Mag deze analyse een koopkans zijn voor deze termijn? */
-export function qualifies(row: SignalRow, horizon: Horizon, allowMock = mockMode()): boolean {
+/** Geeft de analyse nu een koopsignaal voor deze termijn (los van de historische toets)? */
+export function isBuySignal(row: SignalRow, horizon: Horizon, allowMock = mockMode()): boolean {
   if (!allowMock && !row.pricesLive) return false; // nooit aanraden op basis van mock-koersen
   if (horizon === "short") return isBuy(row.shortTerm.advice) && row.tradePlan.direction === "long";
   // Lange termijn: positief beeld, en niet kopen terwijl het korte-termijnsignaal op verkopen staat
   return isBuy(row.longTerm.advice) && row.shortTerm.score > -15;
+}
+
+/**
+ * Mag deze analyse een koopkans zijn voor deze termijn? Alleen als er nu een koopsignaal is
+ * én hetzelfde soort signaal in het verleden op deze asset aantoonbaar winst opleverde.
+ */
+export function qualifies(row: SignalRow, horizon: Horizon, allowMock = mockMode()): boolean {
+  return isBuySignal(row, horizon, allowMock) && row.evidence[horizon].verdict === "proven";
 }
 
 export function toOpportunity(a: Analysis, horizon: Horizon): Opportunity {
@@ -77,7 +86,13 @@ export function buildOpportunities(list: Analysis[], allowMock = mockMode()) {
       .filter((a) => qualifies(toSignalRow(a), horizon, allowMock))
       .map((a) => toOpportunity(a, horizon))
       .sort((x, y) => y.score - x.score);
-  return { short: pick("short"), long: pick("long") };
+  // Koopsignalen die de historische toets niet doorstonden (voor transparantie)
+  const rejected = (horizon: Horizon) =>
+    list
+      .map(toSignalRow)
+      .filter((r) => isBuySignal(r, horizon, allowMock) && r.evidence[horizon].verdict !== "proven")
+      .map((r) => ({ symbol: r.symbol, type: r.type, name: r.name, evidence: r.evidence[horizon] }));
+  return { short: pick("short"), long: pick("long"), rejected: { short: rejected("short"), long: rejected("long") } };
 }
 
 export async function scanUniverse() {

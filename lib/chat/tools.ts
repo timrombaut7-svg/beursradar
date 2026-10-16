@@ -2,7 +2,8 @@ import { z } from "zod";
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { Analysis, AssetType } from "@/types";
 import { getAnalysis } from "@/lib/engine/analyze";
-import { toOpportunity, scanUniverse } from "@/lib/engine/signals";
+import { qualifies, toOpportunity, toSignalRow, scanUniverse } from "@/lib/engine/signals";
+import { evidenceSentence } from "@/lib/evidenceText";
 import { sellAdvice } from "@/lib/engine/sellAdvice";
 import { searchUniverse } from "@/lib/api/universe";
 import { searchStocks } from "@/lib/api/stocks";
@@ -53,6 +54,11 @@ export function analysisForModel(a: Analysis) {
     signaalLangeTermijn: { advies: a.longTerm.advice, score: a.longTerm.score, betrouwbaarheid: a.longTerm.confidence, pijlers: a.longTerm.pillarScores },
     planKorteTermijn: { ...short.plan, houden: short.hold.label, uitleg: short.explanation },
     planLangeTermijn: { ...long.plan, houden: long.hold.label },
+    // Een koopsignaal wordt alleen aangeraden als het in het verleden op deze asset aantoonbaar werkte
+    historischeToets: {
+      korteTermijn: { ...a.evidence.short, aangeraden: qualifies(toSignalRow(a), "short"), uitleg: evidenceSentence(a.evidence.short, "short") },
+      langeTermijn: { ...a.evidence.long, aangeraden: qualifies(toSignalRow(a), "long"), uitleg: evidenceSentence(a.evidence.long, "long") },
+    },
     factoren: factors,
     risico: {
       volatiliteit30dJaarbasis: round(a.risk.volatility30d, 3),

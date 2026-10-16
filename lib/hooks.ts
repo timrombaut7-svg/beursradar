@@ -1,6 +1,7 @@
 "use client";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import type { Analysis, AssetType, Candle, LivePrice, MarketOverview, Opportunity, Quote, SearchResult, SignalRow, Timeframe } from "@/types";
+import type { TrackRecord } from "@/lib/server/tips";
+import type { Analysis, AssetType, Candle, Evidence, LivePrice, MarketOverview, Opportunity, Quote, SearchResult, SignalRow, Timeframe } from "@/types";
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -78,10 +79,34 @@ export function useAiSummary(type: AssetType, symbol: string, enabled: boolean) 
   });
 }
 
+export interface RejectedSignal {
+  symbol: string;
+  type: AssetType;
+  name: string;
+  evidence: Evidence;
+}
+
+export interface ScanResult {
+  scanned: number;
+  generatedAt: number;
+  short: Opportunity[];
+  long: Opportunity[];
+  rejected: Record<"short" | "long", RejectedSignal[]>;
+}
+
+export function useTrackRecord() {
+  return useQuery({
+    queryKey: ["track-record"],
+    queryFn: () => getJson<TrackRecord>("/api/track-record"),
+    staleTime: 120_000,
+    refetchInterval: 300_000,
+  });
+}
+
 export function useScan() {
   return useQuery({
     queryKey: ["scan"],
-    queryFn: () => getJson<{ scanned: number; generatedAt: number; short: Opportunity[]; long: Opportunity[] }>("/api/scan"),
+    queryFn: () => getJson<ScanResult>("/api/scan"),
     staleTime: 30_000,
     refetchInterval: 60_000,
   });

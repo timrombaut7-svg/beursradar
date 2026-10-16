@@ -16,6 +16,13 @@ import { computeSeries, technicalSnapshot } from "./technical";
 import { buildPillar, fundamentalFactors, riskFactors, sentimentFactors, technicalFactors, verdict } from "./scoring";
 import { buildTradePlan } from "./tradePlan";
 import { runBacktest } from "./backtest";
+import { longEvidence, planShape, shortEvidence } from "./evidence";
+
+/** Lange historie (± 5 jaar dagcandles) voor de historische toets van signalen. */
+export const HISTORY_SPEC = {
+  stock: { ...ANALYSIS_TIMEFRAME, bars: 1260 },
+  crypto: { ...ANALYSIS_TIMEFRAME, bars: 1825 },
+} as const;
 
 export async function getCandles(symbol: string, type: AssetType, spec = ANALYSIS_TIMEFRAME) {
   return type === "crypto" ? getCryptoCandles(symbol, spec) : getStockCandles(symbol, spec);
@@ -44,12 +51,14 @@ export async function analyzeAsset(rawSymbol: string, type: AssetType): Promise<
   const barsPerYear = type === "crypto" ? 365 : 252;
   const benchmarkSymbol = type === "crypto" ? "BTC" : "SPY";
 
-  const [main, bench, macro, live] = await Promise.all([
-    getCandles(symbol, type),
+  const [history, bench, macro, live] = await Promise.all([
+    getCandles(symbol, type, HISTORY_SPEC[type]),
     symbol === benchmarkSymbol ? Promise.resolve(null) : getCandles(benchmarkSymbol, type),
     getMacro(),
     getLivePrice(symbol, type).catch(() => null),
   ]);
+  // De analyse kijkt naar de laatste ± 2 jaar; de toets gebruikt de volledige historie
+  const main = { candles: history.candles.slice(-ANALYSIS_TIMEFRAME.bars), live: history.live };
   // De meest recente live koers telt mee in alle indicatoren en signalen
   const candles = live ? applyLivePrice(main.candles, live) : main.candles;
   const candlesLive = main.live;
@@ -95,7 +104,8 @@ export async function analyzeAsset(rawSymbol: string, type: AssetType): Promise<
   // maar nooit gebruikt om iets aan te raden — behalve in expliciete demo-modus.
   const usable = (source: DataSource) => source !== "mock" || mockMode();
   const sentiment = sentimentFactors(fearGreed, newsScore, news.live || mockMode() ? news.items.length : 0, macro, type, symbol).filter(
-    (f) => f.id !== "fng" || usable(fearGreed.source),
+    (f) =>
+      (f.id !== "fng" || usable(fearGreed.source)) && ((f.id !== "rates" && f.id !== "inflation") || usable(macro.source)),
   );
   const pillars: Record<Pillar, PillarScore> = {
     technical: buildPillar("technical", technicalFactors(series, candles.length - 1, technical)),
@@ -122,6 +132,16 @@ export async function analyzeAsset(rawSymbol: string, type: AssetType): Promise<
   const tradePlan = buildTradePlan(technical, shortTerm);
   const backtest = runBacktest(candles, series, { testBars: barsPerYear });
 
+  // Historische toets: werkte dit soort signaal en plan vroeger op deze asset?
+  // Zonder de lopende (nog niet afgesloten) dag, zodat alleen afgeronde trades meetellen.
+  const histCandles = history.candles;
+  const histSeries = computeSeries(histCandles);
+  const shape = planShape(tradePlan, technical.atr, technical.price);
+  const evidence = {
+    short: shortEvidence(histCandles, histSeries, shape, barsPerYear),
+    long: longEvidence(histCandles, histSeries, barsPerYear),
+  };
+
   return {
     asset,
     quote,
@@ -135,6 +155,7 @@ export async function analyzeAsset(rawSymbol: string, type: AssetType): Promise<
     longTerm,
     tradePlan,
     backtest,
+    evidence,
     dataSources,
   };
 }

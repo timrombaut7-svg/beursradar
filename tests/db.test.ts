@@ -2,6 +2,7 @@ import { execSync } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { Client } from "pg";
+import type { Opportunity } from "@/types";
 
 /**
  * Integratietests voor de database-API's. Per run wordt een tijdelijke
@@ -181,6 +182,39 @@ describeDb("LocalStorage-import", () => {
     const { GET: getWatch } = await import("@/app/api/watchlist/route");
     expect((await (await getWatch(req("/api/watchlist", { cookie: profile }))).json()).items).toHaveLength(2);
     expect((await (await GET(req("/api/portfolio", { cookie: profile }))).json()).positions).toHaveLength(1);
+  });
+});
+
+describeDb("Scorebord (tips)", () => {
+  const opp = (symbol: string, horizon: "short" | "long") =>
+    ({
+      horizon,
+      row: { symbol, type: "stock", name: symbol, currency: "USD", price: 100 },
+      plan: { entryLow: 98, entryHigh: 100, stopLoss: 92, target1: 110, target2: 120, riskPct: 0.08 },
+    }) as unknown as Opportunity;
+
+  it("bewaart elke tip één keer per periode en per termijn", async () => {
+    const { recordTips } = await import("@/lib/server/tips");
+    const { getDb } = await import("@/lib/db");
+    const t0 = new Date("2026-10-01T12:00:00Z");
+    expect(await recordTips([opp("AAA", "short"), opp("AAA", "long")], t0)).toBe(2);
+    expect(await recordTips([opp("AAA", "short"), opp("AAA", "long")], new Date(t0.getTime() + 60_000))).toBe(0);
+    // Na 15 dagen telt de korte-termijntip opnieuw, de lange-termijntip nog niet
+    expect(await recordTips([opp("AAA", "short"), opp("AAA", "long")], new Date(t0.getTime() + 15 * 86_400_000))).toBe(1);
+    const rows = await getDb().tip.findMany({ where: { symbol: "AAA" }, orderBy: { createdAt: "asc" } });
+    expect(rows.map((r) => r.horizon)).toEqual(["short", "long", "short"]);
+    expect(rows[1].target1).toBeNull();
+    expect(rows[0]).toMatchObject({ entry: 100, stopLoss: 92, target1: 110 });
+  });
+
+  it("geeft het scorebord terug en kijkt alleen na met echte koersen", async () => {
+    const { GET } = await import("@/app/api/track-record/route");
+    const body = await (await GET()).json();
+    expect(body.enabled).toBe(true);
+    expect(body.since).toBeTruthy();
+    // In demo-modus zijn er geen echte koersen: dan wordt niets nagekeken
+    expect(body.tips).toEqual([]);
+    expect(body.summary.short.total).toBe(0);
   });
 });
 

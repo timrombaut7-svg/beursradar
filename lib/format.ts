@@ -28,6 +28,8 @@ export function formatCompact(v: number | null | undefined): string {
 /** Fractie → percentage-string (0.123 → "12,30%") */
 export function formatPct(v: number | null | undefined, digits = 2, signed = false): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return "—";
+  // Afgerond nul is gewoon nul: geen "-0,0%" of "+0,0%"
+  if (Number((v * 100).toFixed(digits)) === 0) v = 0;
   const s = new Intl.NumberFormat("nl-NL", { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(v * 100);
   return `${signed && v > 0 ? "+" : ""}${s}%`;
 }
