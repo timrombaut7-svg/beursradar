@@ -1,6 +1,6 @@
 "use client";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import type { Analysis, AssetType, Candle, MarketOverview, Quote, SearchResult, SignalRow, Timeframe } from "@/types";
+import type { Analysis, AssetType, Candle, LivePrice, MarketOverview, Quote, SearchResult, SignalRow, Timeframe } from "@/types";
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -13,8 +13,8 @@ export function useAnalysis(type: AssetType, symbol: string) {
   return useQuery({
     queryKey: ["analysis", type, symbol],
     queryFn: () => getJson<Analysis>(`/api/analysis/${type}/${encodeURIComponent(symbol)}`),
-    staleTime: 60_000,
-    refetchInterval: 120_000,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 }
 
@@ -82,8 +82,8 @@ export function useScan() {
   return useQuery({
     queryKey: ["scan"],
     queryFn: () => getJson<{ scanned: number; generatedAt: number; opportunities: SignalRow[] }>("/api/scan"),
-    staleTime: 5 * 60_000,
-    refetchInterval: 10 * 60_000,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 }
 
@@ -93,7 +93,21 @@ export function useSignals(assets: { symbol: string; type: AssetType }[]) {
     queryKey: ["signals", key],
     queryFn: () => getJson<{ signals: SignalRow[] }>(`/api/signals?assets=${encodeURIComponent(key)}`).then((r) => r.signals),
     enabled: key.length > 0,
-    staleTime: 2 * 60_000,
-    refetchInterval: 5 * 60_000,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+}
+
+/** Live koersen, elke 15 seconden ververst (alleen als het tabblad zichtbaar is). */
+export function useLivePrices(assets?: { symbol: string; type: AssetType }[]) {
+  const key = assets ? [...new Set(assets.map((a) => `${a.type}:${a.symbol}`))].sort().join(",") : "";
+  return useQuery({
+    queryKey: ["prices", assets ? key || "none" : "universe"],
+    queryFn: () =>
+      getJson<{ prices: LivePrice[]; generatedAt: number }>(`/api/prices${key ? `?assets=${encodeURIComponent(key)}` : ""}`),
+    enabled: !assets || key.length > 0,
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+    placeholderData: keepPreviousData,
   });
 }

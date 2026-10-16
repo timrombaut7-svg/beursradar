@@ -2,6 +2,7 @@ import type { Analysis, AssetType, SignalRow } from "@/types";
 import { UNIVERSE } from "@/lib/api/universe";
 import { mockMode } from "@/lib/api/http";
 import { getAnalysis } from "./analyze";
+import { explainSignal } from "./explain";
 
 export function toSignalRow(a: Analysis): SignalRow {
   const reasons = Object.values(a.pillars)
@@ -21,6 +22,7 @@ export function toSignalRow(a: Analysis): SignalRow {
     longTerm: { advice: a.longTerm.advice, score: a.longTerm.score },
     tradePlan: a.tradePlan,
     reasons,
+    explanation: explainSignal(a),
     pricesLive: a.dataSources.koersen !== "mock",
     // Rente/inflatie zijn zonder FRED-sleutel altijd indicatief; dat is geen reden tot waarschuwen
     mockSources: Object.entries(a.dataSources)

@@ -256,8 +256,8 @@ export async function getCryptoFundamentals(symbol: string, price: number, daily
 }
 
 /** Top-markten voor het dashboard (movers). */
-export async function getCryptoMarkets(ids: string[]): Promise<Quote[]> {
-  return cached(`cg:markets:${ids.join(",")}`, 120, async () => {
+export async function getCryptoMarkets(ids: string[], ttlSeconds = 120): Promise<Quote[]> {
+  return cached(`cg:markets:${ids.join(",")}:${ttlSeconds}`, ttlSeconds, async () => {
     const rows = await fetchJson<
       { id: string; symbol: string; name: string; current_price: number; price_change_24h: number; price_change_percentage_24h: number; total_volume: number; market_cap: number; high_24h: number; low_24h: number }[]
     >(`${CG}/coins/markets?vs_currency=usd&ids=${ids.join(",")}`, { headers: cgHeaders() });

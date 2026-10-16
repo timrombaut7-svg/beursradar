@@ -24,7 +24,7 @@ export function CardHeader({
         {icon && <span className="text-muted">{icon}</span>}
         <div className="min-w-0">
           <h3 className="truncate text-sm font-semibold tracking-tight">{title}</h3>
-          {subtitle && <p className="truncate text-xs text-muted">{subtitle}</p>}
+          {subtitle && <p className="line-clamp-2 text-xs text-muted">{subtitle}</p>}
         </div>
       </div>
       {action}

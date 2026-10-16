@@ -8,6 +8,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatPct, formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { LivePriceValue } from "@/components/LivePrice";
 import { SellAdviceBadge } from "./AdviceBadge";
 
 const ORDER = { SELL: 0, TAKE_PROFIT: 1, HOLD: 2 } as const;
@@ -60,9 +61,9 @@ export function HoldingsAdvice() {
                 <p className="text-xs text-muted">
                   {Number(p.quantity.toPrecision(6))} × {formatPrice(p.buyPrice, p.currency)} · {p.buyDate}
                 </p>
-                <p className="font-mono text-sm tabular">
-                  {formatPrice(price, p.currency)}{" "}
-                  {pnl !== null && <span className={pnl >= 0 ? "text-bull" : "text-bear"}>{formatPct(pnl, 1, true)}</span>}
+                <p className="text-sm">
+                  {price !== undefined ? <LivePriceValue price={price} currency={p.currency} /> : <span className="text-muted">…</span>}{" "}
+                  {pnl !== null && <span className={cn("font-mono tabular", pnl >= 0 ? "text-bull" : "text-bear")}>{formatPct(pnl, 1, true)}</span>}
                 </p>
               </div>
               <div className="min-w-0 text-sm">

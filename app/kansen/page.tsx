@@ -14,7 +14,7 @@ export default function KansenPage() {
           algoritme, geen financieel advies.
         </p>
       </div>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <OpportunityList />
         <HoldingsAdvice />
       </div>
