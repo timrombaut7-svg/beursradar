@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 87 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 112 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -118,7 +118,14 @@ of 2×ATR stop, uitvoering op de open van de volgende bar, 0,1% kosten per kant.
 ## AI-assistent
 
 Op `/assistent` (en via **Vraag de AI** op elke analysepagina) kun je vragen stellen als *"denk je dat NVIDIA gaat
-dalen?"* of *"moet ik iets verkopen?"*. De assistent is Claude (`claude-opus-5-5`, effort `low`, met automatische
+dalen?"* of *"moet ik iets verkopen?"*.
+
+**Gratis basis-assistent (standaard).** Zonder `ANTHROPIC_API_KEY` beantwoordt een ingebouwde assistent de vragen,
+zonder AI-dienst, kosten of limieten (`lib/chat/local.ts`). Hij herkent het asset (naam of ticker, ook in
+vervolgvragen), wat je wilt weten (dalen/stijgen, kopen, verkopen, kansen, portfolio, markt) en de termijn, en bouwt
+het antwoord uit de live analyses in dezelfde makkelijke taal als de Kansen-pagina.
+
+**Met AI (optioneel, betaald).** Met `ANTHROPIC_API_KEY` neemt Claude het over (`claude-opus-5-5`, effort `low`, met automatische
 fallback bij een weigering) en gebruikt via tools de echte data van de app: `search_asset`, `get_analysis`,
 `get_opportunities`, `get_my_portfolio` en `get_market_overview` (`lib/chat/tools.ts`). Antwoorden streamen naar de
 browser (`/api/chat`, NDJSON).

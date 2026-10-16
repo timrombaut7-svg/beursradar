@@ -36,7 +36,7 @@ export function ChatView() {
 
   const { data: info } = useQuery({
     queryKey: ["chat-info"],
-    queryFn: async () => (await fetch("/api/chat")).json() as Promise<{ enabled: boolean; requiresCode: boolean }>,
+    queryFn: async () => (await fetch("/api/chat")).json() as Promise<{ enabled: boolean; mode: "ai" | "basis"; requiresCode: boolean }>,
     staleTime: 5 * 60_000,
   });
 
@@ -102,6 +102,7 @@ export function ChatView() {
           } else if (ev.type === "status" && ev.text) setStatus(ev.text);
           else if (ev.type === "error") update(reply.id, { content: ev.message ?? "Er ging iets mis.", error: true });
           else if (ev.type === "done" && typeof ev.remaining === "number") setRemaining(ev.remaining);
+          else if (ev.type === "done") setRemaining(null);
         }
       }
     } catch {
@@ -116,20 +117,6 @@ export function ChatView() {
     return (
       <Card className="flex h-64 items-center justify-center">
         <Loader2 className="h-5 w-5 animate-spin text-muted" />
-      </Card>
-    );
-  }
-
-  if (!info.enabled) {
-    return (
-      <Card className="space-y-2 p-6 text-sm">
-        <p className="flex items-center gap-2 font-semibold">
-          <Sparkles className="h-4 w-4 text-accent" /> De AI-assistent is nog niet ingesteld
-        </p>
-        <p className="text-muted">
-          De eigenaar van deze site moet een Anthropic API-sleutel toevoegen als <code>ANTHROPIC_API_KEY</code> in Vercel
-          (Settings → Environment Variables) en daarna opnieuw deployen.
-        </p>
       </Card>
     );
   }
@@ -173,6 +160,7 @@ export function ChatView() {
             <Sparkles className="mx-auto h-8 w-8 text-accent" />
             <p className="text-sm text-muted">
               Stel een vraag over een aandeel, crypto of je portfolio. De assistent gebruikt de live analyses van Beursradar.
+              {info.mode === "basis" && " Deze gratis assistent begrijpt vragen over beleggen; noem het aandeel of de crypto bij naam."}
             </p>
             <div className="grid gap-2">
               {SUGGESTIONS.map((s) => (
@@ -257,7 +245,8 @@ export function ChatView() {
         </Button>
       </form>
       <p className="px-3 pb-2 text-center text-[10px] text-muted">
-        De AI kan fouten maken en geeft geen financieel advies.{remaining !== null ? ` Nog ${remaining} vragen vandaag.` : ""}
+        {info.mode === "basis" ? "Gratis basis-assistent" : "AI-assistent (Claude)"} · kan fouten maken en geeft geen financieel advies.
+        {remaining !== null ? ` Nog ${remaining} vragen vandaag.` : ""}
       </p>
     </Card>
   );

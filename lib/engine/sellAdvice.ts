@@ -27,7 +27,7 @@ export function sellAdvice(p: HeldPosition, price: number, signal: { advice: Adv
     toTarget2Pct: rel(p.target2, 1),
   };
   const pnl = price / p.buyPrice - 1;
-  const pnlTxt = `${pnl >= 0 ? "+" : ""}${(pnl * 100).toFixed(1)}%`;
+  const pnlTxt = `${pnl >= 0 ? "+" : ""}${(pnl * 100).toFixed(1).replace(".", ",")}%`;
 
   if (p.stopLoss && price <= p.stopLoss) {
     return { ...base, action: "SELL", title: "Verkopen", reason: `Stop-loss geraakt (${pnlTxt}). Verkoop om groter verlies te voorkomen.` };
