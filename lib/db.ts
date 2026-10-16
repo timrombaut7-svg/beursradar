@@ -1,9 +1,9 @@
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/lib/generated/prisma/client";
 
 /**
- * Prisma-client (singleton). De database is optioneel: zonder DATABASE_URL
- * draaien watchlist en portfolio alleen in LocalStorage.
+ * Prisma-client (singleton) voor PostgreSQL. De database is optioneel: zonder
+ * DATABASE_URL draaien watchlist en portfolio alleen in LocalStorage.
  */
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient; prismaUrl?: string };
@@ -17,7 +17,7 @@ export function getDb(): PrismaClient {
   if (!url) throw new DatabaseDisabledError();
   // Opnieuw aanmaken als de URL wijzigt (o.a. in tests met een tijdelijke database)
   if (!globalForPrisma.prisma || globalForPrisma.prismaUrl !== url) {
-    globalForPrisma.prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url }) });
+    globalForPrisma.prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
     globalForPrisma.prismaUrl = url;
   }
   return globalForPrisma.prisma;

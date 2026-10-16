@@ -1,30 +1,53 @@
 import { execSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
+import { Client } from "pg";
 
 /**
- * Integratietests voor de database-API's tegen een tijdelijke SQLite-database
- * met de echte migraties.
+ * Integratietests voor de database-API's. Per run wordt een tijdelijke
+ * PostgreSQL-database aangemaakt op TEST_DATABASE_URL, de echte migraties
+ * worden toegepast en na afloop wordt de database weer verwijderd.
+ *
+ * Lokaal: TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres npm test
+ * In CI is TEST_DATABASE_URL verplicht (zie .github/workflows/ci.yml).
  */
 
-let dir: string;
+const baseUrl = process.env.TEST_DATABASE_URL;
+if (!baseUrl && process.env.CI) throw new Error("TEST_DATABASE_URL is verplicht in CI");
+const describeDb = baseUrl ? describe : describe.skip;
+
+const dbName = `beursradar_test_${process.pid}_${Date.now()}`;
 let prevUrl: string | undefined;
 
-beforeAll(() => {
-  dir = mkdtempSync(path.join(tmpdir(), "beursradar-db-"));
+async function admin<T>(fn: (c: Client) => Promise<T>): Promise<T> {
+  const c = new Client({ connectionString: baseUrl });
+  await c.connect();
+  try {
+    return await fn(c);
+  } finally {
+    await c.end();
+  }
+}
+
+beforeAll(async () => {
+  if (!baseUrl) return;
+  await admin((c) => c.query(`CREATE DATABASE "${dbName}"`));
+  const url = new URL(baseUrl);
+  url.pathname = `/${dbName}`;
   prevUrl = process.env.DATABASE_URL;
-  process.env.DATABASE_URL = `file:${path.join(dir, "test.db")}`;
-  execSync("npx prisma migrate deploy", { env: process.env, stdio: "pipe" });
+  process.env.DATABASE_URL = url.toString();
+  execSync("npx prisma migrate deploy", {
+    env: { ...process.env, DATABASE_URL_UNPOOLED: url.toString() },
+    stdio: "pipe",
+  });
 }, 60_000);
 
 afterAll(async () => {
+  if (!baseUrl) return;
   const { getDb } = await import("@/lib/db");
   await getDb().$disconnect();
   process.env.DATABASE_URL = prevUrl;
-  rmSync(dir, { recursive: true, force: true });
+  await admin((c) => c.query(`DROP DATABASE IF EXISTS "${dbName}" WITH (FORCE)`));
 });
 
 function req(url: string, init: { method?: string; body?: unknown; cookie?: string } = {}) {
@@ -57,7 +80,7 @@ const position = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-describe("Watchlist API", () => {
+describeDb("Watchlist API", () => {
   it("maakt een anoniem profiel aan en bewaart items per profiel", async () => {
     const { GET, POST, DELETE } = await import("@/app/api/watchlist/route");
     const first = await GET(req("/api/watchlist"));
@@ -92,7 +115,7 @@ describe("Watchlist API", () => {
   });
 });
 
-describe("Portfolio API", () => {
+describeDb("Portfolio API", () => {
   it("voegt posities toe, normaliseert velden en verwijdert alleen eigen posities", async () => {
     const { GET, POST, DELETE } = await import("@/app/api/portfolio/route");
     const profile = profileFrom(await GET(req("/api/portfolio")));
@@ -124,7 +147,7 @@ describe("Portfolio API", () => {
   });
 });
 
-describe("LocalStorage-import", () => {
+describeDb("LocalStorage-import", () => {
   it("importeert één keer in een leeg profiel en is daarna een no-op", async () => {
     const { POST } = await import("@/app/api/sync/route");
     const { GET } = await import("@/app/api/portfolio/route");

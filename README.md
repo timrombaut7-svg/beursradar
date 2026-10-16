@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 52 unit/integratietests (Vitest)
+npm test             # unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -91,14 +91,14 @@ risk/reward. Shorts worden berekend door het prijsvlak te spiegelen.
 (fundamentals/sentiment zijn historisch niet beschikbaar). Instap bij TA-score ≥ +20, uitstap ≤ −10
 of 2×ATR stop, uitvoering op de open van de volgende bar, 0,1% kosten per kant.
 
-## Opslag (Prisma)
+## Opslag (Prisma + PostgreSQL)
 
-Watchlist en portfolio worden opgeslagen in een database via **Prisma 7** (standaard SQLite via
-`@prisma/adapter-better-sqlite3`). Zonder `DATABASE_URL` werkt alles gewoon in LocalStorage.
+Watchlist en portfolio worden opgeslagen in **PostgreSQL** via **Prisma 7** (`@prisma/adapter-pg`).
+Zonder `DATABASE_URL` werkt alles gewoon in LocalStorage.
 
 ```bash
 # .env.local
-DATABASE_URL="file:./prisma/dev.db"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/beursradar"
 
 npm run db:migrate       # migraties toepassen (prisma migrate deploy)
 npm run db:migrate:dev   # nieuwe migratie maken na een schemawijziging
@@ -112,6 +112,13 @@ npm run db:studio        # data bekijken in Prisma Studio
   server geladen. Bestaande LocalStorage-data wordt bij de eerste keer eenmalig geïmporteerd (`/api/sync`).
 - **Zonder database** geven de API's een 503 en blijft de app in LocalStorage-modus. De UI toont
   steeds waar de data staat ("opgeslagen in de database" / "in je browser").
-- **PostgreSQL:** zet in `prisma/schema.prisma` de provider op `postgresql`, gebruik
-  `@prisma/adapter-pg` in `lib/db.ts` en genereer de migraties opnieuw. SQLite is niet geschikt
-  voor serverless hosting zonder persistente schijf.
+- **Tests:** `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres npm test` maakt
+  per run een tijdelijke database aan en ruimt die op. In CI draait hiervoor een Postgres-service.
+
+## Online zetten (Vercel)
+
+1. Log in op [vercel.com](https://vercel.com) met GitHub → **Add New → Project** → kies deze repository → **Deploy**.
+2. Optioneel, voor opslag in een database: in het Vercel-project → **Storage** → **Create Database** →
+   **Neon (Postgres)** → koppel aan het project en klik daarna op **Redeploy**.
+   Vercel zet `DATABASE_URL` automatisch; de build (`vercel-build`) past dan de migraties toe.
+3. Elke push naar `main` wordt automatisch online gezet.

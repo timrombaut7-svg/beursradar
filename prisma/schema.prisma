@@ -1,6 +1,4 @@
-// Beursradar database-schema.
-// Standaard SQLite (geen setup nodig). Voor PostgreSQL: zet provider op "postgresql",
-// gebruik @prisma/adapter-pg in lib/db.ts en genereer nieuwe migraties.
+// Beursradar database-schema (PostgreSQL, bijv. Vercel Postgres / Neon of een lokale server).
 
 generator client {
   provider = "prisma-client"
@@ -8,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 /// Anoniem profiel per browser (cookie), zodat data per gebruiker gescheiden blijft zonder login.
