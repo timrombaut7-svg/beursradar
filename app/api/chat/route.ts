@@ -6,6 +6,7 @@ import { dbEnabled } from "@/lib/db";
 import { resolveProfile, withProfileCookie } from "@/lib/server/profile";
 import { buildChatTools, chatPositionSchema } from "@/lib/chat/tools";
 import { consumeChatQuota } from "@/lib/chat/limits";
+import { answerLocally } from "@/lib/chat/local";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -40,12 +41,41 @@ function codeMatches(given: string | null, expected: string) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** GET: is de assistent beschikbaar en is er een toegangscode nodig? */
+const aiEnabled = () => Boolean(process.env.ANTHROPIC_API_KEY);
+
+/**
+ * GET: welke assistent draait er? Zonder ANTHROPIC_API_KEY de gratis ingebouwde
+ * assistent ("basis"), met sleutel Claude ("ai"). Alleen "ai" kan een code vereisen.
+ */
 export async function GET() {
-  return NextResponse.json({
-    enabled: Boolean(process.env.ANTHROPIC_API_KEY),
-    requiresCode: Boolean(process.env.CHAT_ACCESS_CODE),
+  const mode = aiEnabled() ? "ai" : "basis";
+  return NextResponse.json({ enabled: true, mode, requiresCode: mode === "ai" && Boolean(process.env.CHAT_ACCESS_CODE) });
+}
+
+const ndjsonHeaders = { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store", "X-Accel-Buffering": "no" };
+
+/** Gratis modus: antwoord uit de eigen analyses, zonder AI-dienst, limieten of kosten. */
+function localResponse(body: z.infer<typeof bodySchema>) {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (obj: object) => controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+      try {
+        const question = body.messages[body.messages.length - 1].content;
+        const history = body.messages.slice(0, -1).filter((m) => m.role === "user").map((m) => m.content);
+        const answer = await answerLocally(question, history, body.positions, (text) => send({ type: "status", text }));
+        // In stukjes versturen zodat het antwoord net als bij de AI binnenloopt
+        for (const part of answer.match(/[\s\S]{1,40}(\s|$)/g) ?? [answer]) send({ type: "text", delta: part });
+        send({ type: "done" });
+      } catch (err) {
+        console.error("[beursradar] fout in basis-assistent:", err);
+        send({ type: "error", message: "Er ging iets mis. Probeer het opnieuw." });
+      } finally {
+        controller.close();
+      }
+    },
   });
+  return new NextResponse(stream, { headers: ndjsonHeaders });
 }
 
 /**
@@ -55,11 +85,8 @@ export async function GET() {
  *   {"type":"done","remaining":12} | {"type":"error","message":"…"}
  */
 export async function POST(req: NextRequest) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: "De AI-assistent is nog niet ingesteld (ANTHROPIC_API_KEY ontbreekt)." }, { status: 503 });
-  }
   const requiredCode = process.env.CHAT_ACCESS_CODE;
-  if (requiredCode && !codeMatches(req.headers.get("x-chat-code"), requiredCode)) {
+  if (aiEnabled() && requiredCode && !codeMatches(req.headers.get("x-chat-code"), requiredCode)) {
     return NextResponse.json({ error: "Onjuiste toegangscode.", code: "access_code" }, { status: 401 });
   }
 
@@ -71,6 +98,8 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Ongeldige JSON" }, { status: 400 });
   }
+
+  if (!aiEnabled()) return localResponse(body);
 
   // Wie stelt de vraag? Met database: het anonieme profiel; anders het IP-adres.
   let profile: { id: string; isNew: boolean } | null = null;
@@ -150,8 +179,6 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  const res = new NextResponse(stream, {
-    headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store", "X-Accel-Buffering": "no" },
-  });
+  const res = new NextResponse(stream, { headers: ndjsonHeaders });
   return profile ? withProfileCookie(res, profile) : res;
 }

@@ -96,11 +96,18 @@ describe("Chat-route", () => {
   };
   const ok = { messages: [{ role: "user", content: "Is Bitcoin een goede koop?" }] };
 
-  it("meldt 503 zonder API-sleutel", async () => {
+  it("gebruikt zonder API-sleutel de gratis basis-assistent (zonder code of limiet)", async () => {
     delete process.env.ANTHROPIC_API_KEY;
-    expect((await post(ok)).status).toBe(503);
+    process.env.CHAT_ACCESS_CODE = "geheim";
     const { GET } = await import("@/app/api/chat/route");
-    expect(await (await GET()).json()).toEqual({ enabled: false, requiresCode: false });
+    expect(await (await GET()).json()).toEqual({ enabled: true, mode: "basis", requiresCode: false });
+    const res = await post(ok);
+    expect(res.status).toBe(200);
+    const events = (await res.text()).trim().split("\n").map((l) => JSON.parse(l));
+    expect(events[0]).toEqual({ type: "status", text: "Analyse van BTC ophalen…" });
+    const text = events.filter((e) => e.type === "text").map((e) => e.delta).join("");
+    expect(text).toContain("Bitcoin");
+    expect(events.at(-1)).toEqual({ type: "done" });
   });
 
   it("vraagt een toegangscode als die is ingesteld", async () => {

@@ -15,6 +15,7 @@ describe("Verkoopadvies", () => {
     const a = sellAdvice(plan, 91, { advice: "BUY" });
     expect(a.action).toBe("SELL");
     expect(a.reason).toMatch(/Stop-loss/);
+    expect(a.reason).toContain("-9,0%"); // Nederlandse decimale komma
   });
 
   it("adviseert verkopen bij koersdoel 2, ook als het signaal nog koop is", () => {

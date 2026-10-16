@@ -2,9 +2,12 @@ import { Fragment, type ReactNode } from "react";
 
 /** Minimale, veilige markdown-weergave (vet, opsommingen, alinea's) zonder HTML-injectie. */
 function inline(text: string): ReactNode[] {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
-    part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : <Fragment key={i}>{part}</Fragment>,
-  );
+  return text.split(/(\*\*[^*]+\*\*|\*[^*\s][^*]*\*|_[^_\s][^_]*_)/g).map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) return <strong key={i}>{part.slice(2, -2)}</strong>;
+    if ((part.startsWith("*") && part.endsWith("*") && part.length > 2) || (part.startsWith("_") && part.endsWith("_") && part.length > 2))
+      return <em key={i} className="text-muted">{part.slice(1, -1)}</em>;
+    return <Fragment key={i}>{part}</Fragment>;
+  });
 }
 
 export function Markdown({ text }: { text: string }) {
