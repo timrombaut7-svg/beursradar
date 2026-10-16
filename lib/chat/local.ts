@@ -8,6 +8,7 @@ import { getCryptoFearGreed, getStockFearGreed } from "@/lib/api/sentiment";
 import { getStockCandles } from "@/lib/api/stocks";
 import { formatPct, formatPrice } from "@/lib/format";
 import type { ChatPosition } from "./tools";
+import { evidenceSentence, rejectionReason } from "@/lib/evidenceText";
 
 /**
  * Gratis, ingebouwde assistent: geen AI-dienst nodig. Herkent de vraag (welk asset,
@@ -186,8 +187,16 @@ function assetAnswer(a: Analysis, p: ParsedQuestion, positions: ChatPosition[]):
   if (risks.length) out.push(`**Wat wijst omlaag:**\n${bullets(risks.slice(0, 2))}`);
 
   const buyNow = verdict.advice === "BUY" || verdict.advice === "STRONG_BUY";
+  const evidence = a.evidence[horizon];
+  const proven = evidence.verdict === "proven";
   if (p.intent === "buy" || p.intent === "overview" || p.intent === "up" || p.intent === "down") {
-    if (buyNow && (horizon === "long" || a.tradePlan.direction === "long")) {
+    if (buyNow && (horizon === "long" || a.tradePlan.direction === "long") && !proven) {
+      out.push(
+        `**Toch niet aangeraden:** het signaal staat op kopen, maar het haalde de historische toets niet: ${rejectionReason(evidence)}. ` +
+          `Daarom raadt de app het nu niet aan.`,
+      );
+    } else if (buyNow && (horizon === "long" || a.tradePlan.direction === "long")) {
+      out.push(`**Bewijs:** ${evidenceSentence(evidence, horizon)}`);
       out.push(`**Als je wilt kopen:** ${opp.explanation.plan}`);
       out.push(`**Hoe lang houden:** ${opp.hold.label}.`);
     } else if (p.intent === "buy") {
@@ -214,13 +223,16 @@ async function opportunitiesAnswer(p: ParsedQuestion): Promise<string> {
   const kindNl = p.kind === "crypto" ? "crypto" : p.kind === "stock" ? "aandelen" : "aandelen en crypto";
   const termNl = horizon === "short" ? "de korte termijn (weken)" : "de lange termijn (maanden tot jaren)";
   if (!list.length) {
-    return `Op dit moment geeft geen ${kindNl} een koopsignaal voor ${termNl}. ${horizon === "short" ? "Vraag eens naar de lange termijn." : "Vraag eens naar de korte termijn."}\n\n${DISCLAIMER}`;
+    return `Op dit moment geeft geen ${kindNl} een koopsignaal voor ${termNl} dat ook de historische toets doorstaat. Liever geen tip dan een slechte tip. ${horizon === "short" ? "Vraag eens naar de lange termijn." : "Vraag eens naar de korte termijn."}\n\n${DISCLAIMER}`;
   }
-  const lines = list.map(
-    (o) =>
-      `**${o.row.name} (${o.row.symbol})**: ${ADVICE_WORDS[o.advice]}, score +${o.score}. ${o.explanation.why[0] ?? ""} Houden: ${o.hold.label}.`,
-  );
-  return `De beste kansen in ${kindNl} voor ${termNl}, volgens de live analyses:\n\n${bullets(lines)}\n\nVraag naar één van deze voor het volledige plan (instapprijs, stop-loss, koersdoelen). Je ziet ze ook op de pagina **Kansen**.\n\n${DISCLAIMER}`;
+  const lines = list.map((o) => {
+    const e = o.row.evidence[horizon];
+    return (
+      `**${o.row.name} (${o.row.symbol})**: ${ADVICE_WORDS[o.advice]}, score +${o.score}. ${o.explanation.why[0] ?? ""} Houden: ${o.hold.label}. ` +
+      `Vroeger ${e.wins} van de ${e.samples} keer winst, gemiddeld ${formatPct(e.avgReturn, 1, true)} per keer.`
+    );
+  });
+  return `De beste kansen in ${kindNl} voor ${termNl}, volgens de live analyses en getest op de afgelopen jaren:\n\n${bullets(lines)}\n\nVraag naar één van deze voor het volledige plan (instapprijs, stop-loss, koersdoelen). Je ziet ze ook op de pagina **Kansen**.\n\n${DISCLAIMER}`;
 }
 
 async function portfolioAnswer(positions: ChatPosition[]): Promise<string> {

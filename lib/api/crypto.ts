@@ -66,8 +66,8 @@ function remember(symbol: string, candles: Candle[]) {
   return { candles, live: true };
 }
 
-/** Minimaal aantal bars om een reeks als bruikbaar te beschouwen. */
-const minBars = (spec: IntervalSpec) => (spec.seconds >= 7 * 86400 ? 10 : 50);
+/** Minimaal aantal bars om een reeks als bruikbaar te beschouwen (nooit meer dan gevraagd). */
+export const minBars = (spec: IntervalSpec) => Math.min(spec.bars, spec.seconds >= 7 * 86400 ? 10 : 50);
 
 async function binanceKlines(host: string, pair: string, spec: IntervalSpec): Promise<Candle[]> {
   const candles: Candle[] = [];

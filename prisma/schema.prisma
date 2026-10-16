@@ -60,3 +60,21 @@ model ChatUsage {
 
   @@id([key, day])
 }
+
+/// Elke koopkans die de app toonde, om achteraf eerlijk te meten hoe goed de tips waren.
+model Tip {
+  id        String   @id @default(cuid())
+  symbol    String
+  type      String // "stock" | "crypto"
+  name      String
+  horizon   String // "short" | "long"
+  currency  String
+  /// Koers op het moment van de tip
+  entry     Float
+  stopLoss  Float
+  target1   Float?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([type, symbol, horizon])
+}

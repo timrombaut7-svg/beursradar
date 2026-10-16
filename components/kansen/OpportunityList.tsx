@@ -14,6 +14,8 @@ import { ADVICE_META, formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { BuyDialog } from "./BuyDialog";
 import { Explanation } from "./Explanation";
+import { EvidenceBox } from "./EvidenceBox";
+import { rejectionReason } from "@/lib/evidenceText";
 
 const HORIZONS: { key: Horizon; label: string; sub: string }[] = [
   { key: "short", label: "Korte termijn", sub: "weken" },
@@ -34,6 +36,7 @@ export function OpportunityList() {
 
   const all = data ? (horizon === "short" ? data.short : data.long) : [];
   const list = all.filter((o) => filter === "all" || o.row.type === filter);
+  const rejected = (data?.rejected[horizon] ?? []).filter((r) => filter === "all" || r.type === filter);
   const count = (h: Horizon) => (data ? (h === "short" ? data.short : data.long).length : 0);
 
   return (
@@ -107,8 +110,8 @@ export function OpportunityList() {
             ? `Op dit moment geeft geen enkele crypto een koopsignaal voor de ${horizon === "short" ? "korte" : "lange"} termijn.`
             : filter === "stock"
               ? `Op dit moment geeft geen enkel aandeel een koopsignaal voor de ${horizon === "short" ? "korte" : "lange"} termijn.`
-              : "Op dit moment is er niets met een koopsignaal voor deze termijn."}{" "}
-          {horizon === "short" ? "Kijk ook bij Lange termijn." : "Kijk ook bij Korte termijn."}
+              : "Op dit moment is er niets met een koopsignaal dat de historische toets doorstaat."}{" "}
+          {horizon === "short" ? "Kijk ook bij Lange termijn." : "Kijk ook bij Korte termijn."} Liever geen tip dan een slechte tip.
         </p>
       )}
       <ul className="divide-y divide-border">
@@ -116,6 +119,27 @@ export function OpportunityList() {
           <OpportunityCard key={`${o.horizon}:${o.row.type}:${o.row.symbol}`} o={o} lp={live?.prices.find((x) => x.symbol === o.row.symbol && x.type === o.row.type)} />
         ))}
       </ul>
+      {rejected.length > 0 && (
+        <details className="border-t border-border p-4 text-sm">
+          <summary className="cursor-pointer text-muted hover:text-text">
+            {rejected.length} {rejected.length === 1 ? "ander koopsignaal" : "andere koopsignalen"} weggelaten na de historische toets
+          </summary>
+          <p className="mt-2 text-xs text-muted">
+            Deze gaven nu wel een koopsignaal, maar hetzelfde signaal leverde in het verleden op dit aandeel of deze crypto
+            niet genoeg op. Daarom raden we ze niet aan.
+          </p>
+          <ul className="mt-2 space-y-1">
+            {rejected.map((r) => (
+              <li key={`${r.type}:${r.symbol}`} className="flex flex-wrap gap-x-2">
+                <Link href={`/asset/${r.type}/${r.symbol}`} className="font-mono font-semibold hover:text-accent">
+                  {r.symbol}
+                </Link>
+                <span className="text-muted">{rejectionReason(r.evidence)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </Card>
   );
 }
@@ -168,6 +192,7 @@ function OpportunityCard({ o, lp }: { o: Opportunity; lp: LivePrice | undefined 
         )}
       </div>
 
+      <EvidenceBox evidence={o.row.evidence[o.horizon]} horizon={o.horizon} />
       <Explanation explanation={o.explanation} />
     </li>
   );

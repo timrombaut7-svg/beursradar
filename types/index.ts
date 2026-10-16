@@ -263,6 +263,27 @@ export interface BacktestResult {
   equityCurve: { time: number; strategy: number; buyHold: number }[];
 }
 
+/** Resultaat van de historische toets van een koopsignaal op één asset. */
+export interface Evidence {
+  horizon: Horizon;
+  /** Aantal keer dat hetzelfde soort signaal in het verleden voorkwam (afgeronde trades) */
+  samples: number;
+  /** Aantal keer met winst */
+  wins: number;
+  winRate: number; // 0..1
+  /** Gemiddeld resultaat per keer, na kosten (fractie) */
+  avgReturn: number;
+  /** Gemiddeld resultaat als je met hetzelfde plan op een willekeurige dag was ingestapt */
+  baselineReturn: number;
+  bestReturn: number;
+  worstReturn: number;
+  avgHoldDays: number;
+  /** Getoetste periode in jaren */
+  years: number;
+  /** proven = werkte aantoonbaar; weak = werkte niet; insufficient = te weinig voorbeelden */
+  verdict: "proven" | "weak" | "insufficient";
+}
+
 export interface Analysis {
   asset: AssetMeta;
   quote: Quote;
@@ -281,6 +302,8 @@ export interface Analysis {
   longTerm: HorizonVerdict;
   tradePlan: TradePlan;
   backtest: BacktestResult;
+  /** Historische toets van het koopsignaal per termijn */
+  evidence: Record<Horizon, Evidence>;
   /** Overzicht van welke bronnen live/mock waren */
   dataSources: Record<string, DataSource>;
 }
@@ -313,6 +336,7 @@ export interface SignalRow {
   pricesLive: boolean;
   /** Databronnen die het advies beïnvloeden en nu mock-data zijn (macro telt niet mee) */
   mockSources: string[];
+  evidence: Record<Horizon, Evidence>;
 }
 
 export type SellAction = "SELL" | "TAKE_PROFIT" | "HOLD";

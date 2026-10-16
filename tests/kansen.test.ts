@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { sellAdvice } from "@/lib/engine/sellAdvice";
 import { qualifies, mapLimit, getSignals, buildOpportunities } from "@/lib/engine/signals";
 import { analyzeAsset } from "@/lib/engine/analyze";
-import type { SignalRow } from "@/types";
+import type { Evidence, SignalRow } from "@/types";
 
 beforeAll(() => {
   process.env.USE_MOCK_DATA = "1";
@@ -49,6 +49,20 @@ describe("Verkoopadvies", () => {
   });
 });
 
+const ev = (verdict: Evidence["verdict"], horizon: "short" | "long" = "short"): Evidence => ({
+  horizon,
+  samples: 20,
+  wins: 12,
+  winRate: 0.6,
+  avgReturn: 0.01,
+  baselineReturn: 0.002,
+  bestReturn: 0.08,
+  worstReturn: -0.05,
+  avgHoldDays: 9,
+  years: 4.2,
+  verdict,
+});
+
 const row = (over: Partial<SignalRow>): SignalRow => ({
   symbol: "X",
   name: "X",
@@ -62,6 +76,7 @@ const row = (over: Partial<SignalRow>): SignalRow => ({
   reasons: [],
   pricesLive: true,
   mockSources: [],
+  evidence: { short: ev("proven"), long: ev("proven", "long") },
   ...over,
 });
 
@@ -81,6 +96,16 @@ describe("Koopkansen", () => {
     expect(qualifies(row({ longTerm: { advice: "HOLD", score: 5 } }), "long", false)).toBe(false);
   });
 
+  it("raadt een koopsignaal alleen aan als het de historische toets doorstaat", () => {
+    const lt = { advice: "BUY" as const, score: 30 };
+    for (const verdict of ["weak", "insufficient"] as const) {
+      const r = row({ longTerm: lt, evidence: { short: ev(verdict), long: ev(verdict, "long") } });
+      expect(qualifies(r, "short", false)).toBe(false);
+      expect(qualifies(r, "long", false)).toBe(false);
+    }
+    expect(qualifies(row({ longTerm: lt }), "long", false)).toBe(true);
+  });
+
   it("raadt nooit assets aan waarvan de koersen alleen mock-data zijn", () => {
     const mockRow = row({ pricesLive: false, longTerm: { advice: "BUY", score: 30 } });
     expect(qualifies(mockRow, "short", false)).toBe(false);
@@ -91,7 +116,11 @@ describe("Koopkansen", () => {
   it("bouwt kansen per termijn, gesorteerd op score en met een passend plan", async () => {
     const list = await Promise.all(["BTC", "ETH", "SOL"].map((s) => analyzeAsset(s, "crypto")));
     const nvda = await analyzeAsset("NVDA", "stock");
-    const { short, long } = buildOpportunities([...list, nvda], true);
+    const { short, long, rejected } = buildOpportunities([...list, nvda], true);
+    for (const h of ["short", "long"] as const) {
+      for (const o of h === "short" ? short : long) expect(o.row.evidence[h].verdict).toBe("proven");
+      for (const r of rejected[h]) expect(r.evidence.verdict).not.toBe("proven");
+    }
     for (const [ops, horizon] of [[short, "short"], [long, "long"]] as const) {
       for (let i = 1; i < ops.length; i++) expect(ops[i].score).toBeLessThanOrEqual(ops[i - 1].score);
       for (const o of ops) {

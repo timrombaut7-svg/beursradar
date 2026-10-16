@@ -42,7 +42,7 @@ export function MarketOverview() {
               ["Fed Funds rente", m.fedFundsRate !== null ? `${m.fedFundsRate.toFixed(2)}%` : "—", arrow(m.rateTrend)],
               ["Inflatie (CPI YoY)", m.inflationYoY !== null ? `${m.inflationYoY.toFixed(1)}%` : "—", arrow(m.inflationTrend)],
               ["US 10j rente", m.us10y !== null ? `${m.us10y.toFixed(2)}%` : "—", ""],
-              ["BTC dominantie", m.btcDominance !== null ? `${m.btcDominance.toFixed(1)}%` : "—", arrow(m.btcDominanceTrend)],
+              ["BTC dominantie", m.btcDominance !== null ? `${m.btcDominance.toFixed(1)}%` : "—", "aandeel van Bitcoin"],
             ].map(([l, v, s]) => (
               <div key={l} className="rounded-lg bg-panel-2 p-3">
                 <div className="text-[11px] text-muted">{l}</div>
