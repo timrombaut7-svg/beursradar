@@ -1,6 +1,6 @@
 import { AssetNotFoundError } from "@/lib/api/guard";
 import { NextResponse } from "next/server";
-import { analyzeAsset } from "@/lib/engine/analyze";
+import { getAnalysis } from "@/lib/engine/analyze";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ type: string; 
     return NextResponse.json({ error: "ongeldig symbool" }, { status: 400 });
   }
   try {
-    const analysis = await analyzeAsset(sym, type);
+    const analysis = await getAnalysis(sym, type);
     return NextResponse.json(analysis, {
       headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
     });

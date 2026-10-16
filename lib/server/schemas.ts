@@ -23,6 +23,9 @@ export const positionInput = z.object({
   buyPrice: z.number().positive().finite().max(1e12),
   buyDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "datum moet YYYY-MM-DD zijn"),
   currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/),
+  stopLoss: z.number().positive().finite().nullish(),
+  target1: z.number().positive().finite().nullish(),
+  target2: z.number().positive().finite().nullish(),
 });
 
 export const importInput = z.object({

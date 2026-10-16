@@ -13,6 +13,10 @@ export interface Position {
   buyPrice: number;
   buyDate: string; // ISO datum
   currency: string;
+  /** Tradeplan op het moment van kopen (via Kansen) */
+  stopLoss?: number | null;
+  target1?: number | null;
+  target2?: number | null;
 }
 
 interface PortfolioState {

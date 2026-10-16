@@ -6,6 +6,7 @@ import { getCryptoFearGreed, getStockFearGreed } from "@/lib/api/sentiment";
 import { getNews } from "@/lib/api/news";
 import { getMacro } from "@/lib/api/macro";
 import { findInUniverse } from "@/lib/api/universe";
+import { cached } from "@/lib/api/http";
 import { assertResolvable } from "@/lib/api/guard";
 import { aggregateSentiment } from "@/lib/nlp/sentiment";
 import { beta, historicalVaR, historicalVolatility, maxDrawdown, sharpe } from "@/lib/indicators";
@@ -119,4 +120,9 @@ export async function analyzeAsset(rawSymbol: string, type: AssetType): Promise<
     backtest,
     dataSources,
   };
+}
+
+/** Analyse met 5 minuten server-cache; gedeeld door de analysepagina en de kansen-scan. */
+export function getAnalysis(symbol: string, type: AssetType): Promise<Analysis> {
+  return cached(`analysis:${type}:${symbol.toUpperCase()}`, 300, () => analyzeAsset(symbol, type));
 }

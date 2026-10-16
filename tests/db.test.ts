@@ -139,6 +139,18 @@ describeDb("Portfolio API", () => {
     expect(await (await DELETE(req("/api/portfolio?all=1", { method: "DELETE", cookie: profile }))).json()).toEqual({ deleted: 1 });
   });
 
+  it("bewaart het tradeplan van een gekochte positie", async () => {
+    const { GET, POST } = await import("@/app/api/portfolio/route");
+    const profile = profileFrom(await GET(req("/api/portfolio")));
+    const p = position({ stopLoss: 140, target1: 165, target2: 180 });
+    await POST(req("/api/portfolio", { method: "POST", cookie: profile, body: p }));
+    const manual = position();
+    await POST(req("/api/portfolio", { method: "POST", cookie: profile, body: manual }));
+    const rows = (await (await GET(req("/api/portfolio", { cookie: profile }))).json()).positions;
+    expect(rows.find((r: { id: string }) => r.id === p.id)).toMatchObject({ stopLoss: 140, target1: 165, target2: 180 });
+    expect(rows.find((r: { id: string }) => r.id === manual.id)).toMatchObject({ stopLoss: null, target1: null, target2: null });
+  });
+
   it("weigert ongeldige posities", async () => {
     const { POST } = await import("@/app/api/portfolio/route");
     for (const bad of [position({ quantity: -1 }), position({ buyDate: "1-3-2026" }), position({ id: "geen-uuid" })]) {

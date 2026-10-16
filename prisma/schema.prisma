@@ -41,6 +41,10 @@ model Position {
   buyPrice  Float
   buyDate   String // ISO-datum (YYYY-MM-DD)
   currency  String
+  /// Tradeplan op het moment van kopen (leeg bij handmatig ingevoerde posities)
+  stopLoss  Float?
+  target1   Float?
+  target2   Float?
   createdAt DateTime @default(now())
 
   @@index([profileId])

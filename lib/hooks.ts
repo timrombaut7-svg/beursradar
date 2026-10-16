@@ -1,6 +1,6 @@
 "use client";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import type { Analysis, AssetType, Candle, MarketOverview, Quote, SearchResult, Timeframe } from "@/types";
+import type { Analysis, AssetType, Candle, MarketOverview, Quote, SearchResult, SignalRow, Timeframe } from "@/types";
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -75,5 +75,25 @@ export function useAiSummary(type: AssetType, symbol: string, enabled: boolean) 
     enabled,
     staleTime: 30 * 60_000,
     retry: false,
+  });
+}
+
+export function useScan() {
+  return useQuery({
+    queryKey: ["scan"],
+    queryFn: () => getJson<{ scanned: number; generatedAt: number; opportunities: SignalRow[] }>("/api/scan"),
+    staleTime: 5 * 60_000,
+    refetchInterval: 10 * 60_000,
+  });
+}
+
+export function useSignals(assets: { symbol: string; type: AssetType }[]) {
+  const key = [...new Set(assets.map((a) => `${a.type}:${a.symbol}`))].sort().join(",");
+  return useQuery({
+    queryKey: ["signals", key],
+    queryFn: () => getJson<{ signals: SignalRow[] }>(`/api/signals?assets=${encodeURIComponent(key)}`).then((r) => r.signals),
+    enabled: key.length > 0,
+    staleTime: 2 * 60_000,
+    refetchInterval: 5 * 60_000,
   });
 }

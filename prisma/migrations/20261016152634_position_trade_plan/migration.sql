@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Position" ADD COLUMN     "stopLoss" DOUBLE PRECISION,
+ADD COLUMN     "target1" DOUBLE PRECISION,
+ADD COLUMN     "target2" DOUBLE PRECISION;
