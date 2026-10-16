@@ -153,7 +153,7 @@ export function ChatView() {
   }
 
   return (
-    <Card className="flex h-[calc(100dvh-11rem)] min-h-[420px] flex-col overflow-hidden">
+    <Card className="flex h-[calc(100dvh-15.5rem)] min-h-[420px] flex-col overflow-hidden md:h-[calc(100dvh-11rem)]">
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {messages.length === 0 && (
           <div className="mx-auto max-w-lg space-y-4 py-6 text-center">
