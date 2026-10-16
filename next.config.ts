@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // yahoo-finance2 gebruikt Node-specifieke modules; laat het buiten de server-bundle.
+  // Node-specifieke/native modules buiten de server-bundle houden.
   serverExternalPackages: ["yahoo-finance2"],
 };
 

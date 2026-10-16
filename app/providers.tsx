@@ -2,6 +2,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { useUi } from "@/lib/store/ui";
+import { useServerSync } from "@/lib/store/sync";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(
@@ -19,6 +20,7 @@ export function Providers({ children }: { children: ReactNode }) {
       }),
   );
   const theme = useUi((s) => s.theme);
+  useServerSync();
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);

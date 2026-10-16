@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { AssetType } from "@/types";
+import { remote } from "./remote";
 
 export interface Position {
   id: string;
@@ -19,16 +20,28 @@ interface PortfolioState {
   add: (p: Omit<Position, "id">) => void;
   remove: (id: string) => void;
   clear: () => void;
+  /** Vervangt alle posities door de server-versie (zonder terug te synchroniseren). */
+  replace: (positions: Position[]) => void;
 }
 
 export const usePortfolio = create<PortfolioState>()(
   persist(
     (set) => ({
       positions: [],
-      add: (p) =>
-        set((s) => ({ positions: [...s.positions, { ...p, id: `${p.symbol}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` }] })),
-      remove: (id) => set((s) => ({ positions: s.positions.filter((p) => p.id !== id) })),
-      clear: () => set({ positions: [] }),
+      add: (p) => {
+        const position = { ...p, id: crypto.randomUUID() };
+        set((s) => ({ positions: [...s.positions, position] }));
+        void remote.send("POST", "/api/portfolio", position);
+      },
+      remove: (id) => {
+        set((s) => ({ positions: s.positions.filter((p) => p.id !== id) }));
+        void remote.send("DELETE", `/api/portfolio?id=${encodeURIComponent(id)}`);
+      },
+      clear: () => {
+        set({ positions: [] });
+        void remote.send("DELETE", "/api/portfolio?all=1");
+      },
+      replace: (positions) => set({ positions }),
     }),
     { name: "beursradar-portfolio", version: 1 },
   ),

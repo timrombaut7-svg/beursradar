@@ -1,0 +1,47 @@
+// Beursradar database-schema (PostgreSQL, bijv. Vercel Postgres / Neon of een lokale server).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Anoniem profiel per browser (cookie), zodat data per gebruiker gescheiden blijft zonder login.
+model Profile {
+  id        String          @id
+  createdAt DateTime        @default(now())
+  watchlist WatchlistItem[]
+  positions Position[]
+}
+
+model WatchlistItem {
+  id        String   @id @default(cuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  symbol    String
+  name      String
+  type      String // "stock" | "crypto"
+  addedAt   DateTime @default(now())
+
+  @@unique([profileId, type, symbol])
+  @@index([profileId])
+}
+
+model Position {
+  id        String   @id
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  symbol    String
+  name      String
+  type      String // "stock" | "crypto"
+  quantity  Float
+  buyPrice  Float
+  buyDate   String // ISO-datum (YYYY-MM-DD)
+  currency  String
+  createdAt DateTime @default(now())
+
+  @@index([profileId])
+}

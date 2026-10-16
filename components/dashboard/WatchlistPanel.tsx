@@ -7,6 +7,7 @@ import { useQuotes } from "@/lib/hooks";
 import { Card, CardHeader } from "@/components/ui/card";
 import { formatPct, formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { StorageLabel } from "@/components/StorageBadge";
 
 export function WatchlistPanel() {
   const { items, remove } = useWatchlist();
@@ -17,7 +18,7 @@ export function WatchlistPanel() {
 
   return (
     <Card>
-      <CardHeader icon={<Star className="h-4 w-4" />} title="Watchlist" subtitle={`${list.length} assets · opgeslagen in je browser`} />
+      <CardHeader icon={<Star className="h-4 w-4" />} title="Watchlist" subtitle={<>{list.length} assets · <StorageLabel /></>} />
       {list.length === 0 && <p className="p-4 text-sm text-muted">Nog leeg. Klik op ★ bij een asset om hem toe te voegen.</p>}
       <ul className="divide-y divide-border">
         {list.map((i) => {
