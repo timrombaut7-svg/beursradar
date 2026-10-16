@@ -28,7 +28,11 @@ export function usePositionAdvice(positions: Position[]) {
           position,
           signal,
           price,
-          advice: price !== undefined ? sellAdvice(position, price, signal ? signal.shortTerm : null) : undefined,
+          // Lange-termijnposities volgen het lange-termijnsignaal, korte het korte
+          advice:
+            price !== undefined
+              ? sellAdvice(position, price, signal ? (position.horizon === "long" ? signal.longTerm : signal.shortTerm) : null)
+              : undefined,
         };
       }),
     [positions, query.data, live.data],

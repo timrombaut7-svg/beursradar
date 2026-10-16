@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyLivePrice } from "@/lib/engine/live";
-import { explainSignal } from "@/lib/engine/explain";
+import { daysLabel, easySentence, estimateHold, explainEasy, longTermPlan, shortTermPlan } from "@/lib/engine/explain";
 import { analyzeAsset } from "@/lib/engine/analyze";
 import { getLivePrices } from "@/lib/api/livePrices";
 import type { Candle } from "@/types";
@@ -42,27 +42,60 @@ describe("Live koers in dagcandles", () => {
   });
 });
 
-describe("Uitleg bij een signaal", () => {
-  it("legt het signaal uit met argumenten uit de beslissingsmatrix", async () => {
+describe("Uitleg in makkelijke taal", () => {
+  it("gebruikt geen vaktermen en klopt met de punten van de factoren", async () => {
     const a = await analyzeAsset("NVDA", "stock");
-    const e = explainSignal(a);
-    expect(e.summary).toContain(a.asset.name);
-    expect(e.summary).toMatch(/op een schaal van −100 tot \+100/);
-    expect(e.pros.length).toBeLessThanOrEqual(4);
-    expect(e.cons.length).toBeLessThanOrEqual(3);
-    const allLabels = Object.values(a.pillars).flatMap((p) => p.factors.map((f) => f.label));
-    for (const item of [...e.pros, ...e.cons]) expect(allLabels).toContain(item.title);
-    // pro's hebben positieve punten, risico's negatieve
-    const byLabel = new Map(Object.values(a.pillars).flatMap((p) => p.factors.map((f) => [f.label, f.points] as const)));
-    for (const p of e.pros) expect(byLabel.get(p.title)).toBeGreaterThan(0);
-    for (const c of e.cons) expect(byLabel.get(c.title)).toBeLessThan(0);
-    if (a.tradePlan.direction === "long") expect(e.summary).toMatch(/stop-loss/);
+    for (const horizon of ["short", "long"] as const) {
+      const plan = horizon === "short" ? shortTermPlan(a) : longTermPlan(a);
+      const e = explainEasy(a, horizon, plan, estimateHold(a, horizon, plan));
+      const text = [e.headline, ...e.why, ...e.risks, e.plan, e.hold].join(" ");
+      expect(text).not.toMatch(/\b(EMA|RSI|MACD|Bollinger|PEG|ATR|MVRV|Sharpe|beta)\b/i);
+      expect(e.headline).toContain(a.asset.name);
+      expect(e.why.length).toBeLessThanOrEqual(4);
+      expect(e.risks.length).toBeLessThanOrEqual(2);
+      expect(e.plan).toMatch(/verkoop/i);
+    }
   });
 
-  it("noemt in de samenvatting de pijler die het meest bijdraagt", async () => {
+  it("geeft per factor een zin in de goede richting", async () => {
+    const a = await analyzeAsset("BTC", "crypto");
+    const base = { pillar: "technical" as const, id: "ema20", label: "", value: "", maxPoints: 1, horizons: ["short" as const], explanation: "" };
+    expect(easySentence({ ...base, points: 1 }, a)).toMatch(/hoger/);
+    expect(easySentence({ ...base, points: -1 }, a)).toMatch(/lager/);
+    expect(easySentence({ ...base, points: 0 }, a)).toBeNull();
+    // Nederlandse decimale komma in waarden
+    const mdd = { ...base, pillar: "risk" as const, id: "mdd", value: "-48.8%", maxPoints: 2 };
+    expect(easySentence({ ...mdd, points: -2 }, a)).toContain("-48,8%");
+    // Onbekende factor: valt terug op de bestaande uitleg in plaats van niets
+    expect(easySentence({ ...base, id: "nieuw", points: 1, explanation: "Fallback." }, a)).toBe("Fallback.");
+  });
+});
+
+describe("Hoe lang houden", () => {
+  it("schat de korte termijn in dagen/weken en de lange termijn in maanden tot jaren", async () => {
     const a = await analyzeAsset("NVDA", "stock");
-    // Fundamenteel scoort maximaal maar weegt maar 10%; technisch scoort lager maar weegt 50%
-    a.shortTerm = { ...a.shortTerm, pillarScores: { fundamental: 100, technical: 60, sentiment: 0, risk: 0 } };
-    expect(explainSignal(a).summary).toMatch(/Vooral de technische analyse en de fundamentele analyse zijn positief/);
+    const short = estimateHold(a, "short", shortTermPlan(a));
+    expect(short.minDays!).toBeGreaterThanOrEqual(3);
+    expect(short.maxDays!).toBeGreaterThanOrEqual(short.minDays!);
+    expect(short.maxDays!).toBeLessThanOrEqual(56); // max 40 handelsdagen
+    expect(short.label).toMatch(/^± /);
+    expect(estimateHold(a, "long", longTermPlan(a)).label).toBe("maanden tot jaren");
+  });
+
+  it("formuleert de duur leesbaar", () => {
+    expect(daysLabel(4, 4)).toBe("± 4 dagen");
+    expect(daysLabel(4, 8)).toBe("± 4–8 dagen");
+    expect(daysLabel(7, 10)).toBe("± 1 week");
+    expect(daysLabel(10, 21)).toBe("± 1–3 weken");
+  });
+
+  it("geeft voor lange termijn een ruimere noodrem bij een beweeglijkere asset", async () => {
+    const calm = await analyzeAsset("KO", "stock");
+    const wild = await analyzeAsset("SOL", "crypto");
+    expect(longTermPlan(wild).riskPct).toBeGreaterThan(longTermPlan(calm).riskPct);
+    for (const a of [calm, wild]) {
+      expect(longTermPlan(a).riskPct).toBeGreaterThanOrEqual(0.12);
+      expect(longTermPlan(a).riskPct).toBeLessThanOrEqual(0.4);
+    }
   });
 });

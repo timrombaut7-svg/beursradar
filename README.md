@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 69 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 76 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -94,8 +94,16 @@ zodat indicatoren en signalen er meteen op reageren; analyses en de scan worden 
 ververst koersen elke 15 s (met beursstatus open/gesloten) en signalen elke minuut. Europese beurzen kunnen via Yahoo
 tot 15 min vertraagd zijn; buiten openingstijden verandert een aandeelkoers niet.
 
-**Uitleg:** elke kans krijgt een samenvatting in gewone taal plus de sterkste argumenten vóór en de risico's,
-rechtstreeks uit de beslissingsmatrix (`lib/engine/explain.ts`).
+**Uitleg & houdtermijn:** elke kans krijgt uitleg in makkelijke taal zonder vaktermen (waarom kopen, waar op letten,
+het plan, hoe lang houden). Elke zin hoort bij een factor uit de beslissingsmatrix (`lib/engine/explain.ts`).
+Korte termijn: houdtermijn geschat als afstand tot de koersdoelen ÷ (0,35 × gemiddelde dagbeweging), begrensd op
+3–40 handelsdagen. Lange termijn: kopen bij een positief lange-termijnsignaal (niet als het korte-termijnsignaal op
+verkopen staat), ruime noodrem-stop (1,5 × verwachte 3-maandsbeweging, 12–40%), geen vaste koersdoelen; verkoopadvies
+volgt dan het lange-termijnsignaal.
+
+**Alleen echte data in de score:** fundamentals, nieuws en Fear & Greed tellen alleen mee als ze live zijn; geschatte
+netwerkactiviteit van crypto telt nooit mee (behalve in demo-modus met `USE_MOCK_DATA=1`). Crypto-koersen komen van
+`data-api.binance.vision` (niet geo-geblokkeerd), met Coinbase en CoinGecko als reserve.
 
 **Kansen & verkoopadvies:** `/api/scan` analyseert de hele catalogus (max. 4 tegelijk, 1 min cache) en
 toont assets met KOOP/STERK KOOP op korte termijn én een long-plan; assets met alleen mock-koersen worden

@@ -10,8 +10,9 @@ export default function KansenPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Kansen</h1>
         <p className="text-sm text-muted">
-          Assets met een koopsignaal op korte termijn (1–4 weken), en verkoopadvies voor wat je hebt gekocht. Dit is een
-          algoritme, geen financieel advies.
+          Aandelen en crypto die nu interessant zijn om te kopen, voor de korte termijn (weken) of de lange termijn
+          (maanden tot jaren), met uitleg in gewone taal. Rechts zie je wanneer je moet verkopen. Dit is een algoritme,
+          geen financieel advies.
         </p>
       </div>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] [&>*]:min-w-0">

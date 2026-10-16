@@ -4,7 +4,10 @@ import { findInUniverse } from "./universe";
 import { mockCandles, mockCryptoFundamentals, mockNetwork, rememberPrice } from "./mock";
 
 const CG = "https://api.coingecko.com/api/v3";
-const BINANCE = "https://api.binance.com/api/v3";
+// data-api.binance.vision is Binance's openbare marktdata-server: geen geo-blokkade
+// (api.binance.com geeft 451 vanuit de VS, waar Vercel standaard draait)
+const BINANCE_HOSTS = ["https://data-api.binance.vision/api/v3", "https://api.binance.com/api/v3"];
+const COINBASE = "https://api.exchange.coinbase.com";
 
 function cgHeaders(): HeadersInit {
   const key = process.env.COINGECKO_API_KEY;
@@ -38,8 +41,9 @@ interface IntervalSpec {
 }
 
 /**
- * Haalt OHLCV-candles op. Volgorde: Binance klines (echte OHLC) → CoinGecko
- * market_chart (close-reeks, OHLC gereconstrueerd) → mock.
+ * Haalt OHLCV-candles op. Volgorde: Binance klines via de openbare dataserver en
+ * de gewone API (echte OHLC) → Coinbase (echte OHLC) → CoinGecko market_chart
+ * (close-reeks, OHLC gereconstrueerd) → mock.
  */
 export async function getCryptoCandles(symbol: string, spec: IntervalSpec): Promise<{ candles: Candle[]; live: boolean }> {
   const entry = findInUniverse(symbol, "crypto");
@@ -47,7 +51,8 @@ export async function getCryptoCandles(symbol: string, spec: IntervalSpec): Prom
   return cached(`crypto:candles:${symbol}:${spec.binance}:${spec.bars}`, spec.seconds >= 86400 ? 900 : 120, () =>
     withFallback<{ candles: Candle[]; live: boolean }>(
       [
-        async () => remember(symbol, await binanceKlines(pair, spec)),
+        ...BINANCE_HOSTS.map((host) => async () => remember(symbol, await binanceKlines(host, pair, spec))),
+        async () => remember(symbol, await coinbaseCandles(coinbaseProduct(symbol), spec)),
         async () => remember(symbol, await coingeckoCandles(coingeckoIdFor(symbol), spec)),
       ],
       () => ({ candles: mockCandles(symbol, "crypto", { bars: spec.bars, intervalSeconds: spec.seconds }), live: false }),
@@ -64,13 +69,13 @@ function remember(symbol: string, candles: Candle[]) {
 /** Minimaal aantal bars om een reeks als bruikbaar te beschouwen. */
 const minBars = (spec: IntervalSpec) => (spec.seconds >= 7 * 86400 ? 10 : 50);
 
-async function binanceKlines(pair: string, spec: IntervalSpec): Promise<Candle[]> {
+async function binanceKlines(host: string, pair: string, spec: IntervalSpec): Promise<Candle[]> {
   const candles: Candle[] = [];
   let endTime: number | undefined;
   // Binance levert max 1000 bars per request
   while (candles.length < spec.bars) {
     const limit = Math.min(1000, spec.bars - candles.length);
-    const url = `${BINANCE}/klines?symbol=${pair}&interval=${spec.binance}&limit=${limit}${endTime ? `&endTime=${endTime}` : ""}`;
+    const url = `${host}/klines?symbol=${pair}&interval=${spec.binance}&limit=${limit}${endTime ? `&endTime=${endTime}` : ""}`;
     const rows = await fetchJson<[number, string, string, string, string, string][]>(url);
     if (!rows.length) break;
     const batch = rows.map((r) => ({
@@ -87,6 +92,38 @@ async function binanceKlines(pair: string, spec: IntervalSpec): Promise<Candle[]
   }
   if (candles.length < minBars(spec)) throw new Error("te weinig Binance-data");
   return candles;
+}
+
+const COINBASE_GRANULARITY: Record<number, number> = { 3600: 3600, 86400: 86400 };
+
+function coinbaseProduct(symbol: string) {
+  const s = symbol.toUpperCase();
+  return `${s === "MATIC" ? "POL" : s}-USD`;
+}
+
+/** Coinbase Exchange: max. 300 candles per request, alleen uur- en dagcandles. */
+async function coinbaseCandles(product: string, spec: IntervalSpec): Promise<Candle[]> {
+  const granularity = COINBASE_GRANULARITY[spec.seconds];
+  if (!granularity) throw new Error("Coinbase ondersteunt dit interval niet");
+  const candles: Candle[] = [];
+  let end = Math.floor(Date.now() / 1000);
+  while (candles.length < spec.bars) {
+    const start = end - 300 * granularity;
+    const rows = await fetchJson<[number, number, number, number, number, number][]>(
+      `${COINBASE}/products/${product}/candles?granularity=${granularity}&start=${new Date(start * 1000).toISOString()}&end=${new Date(end * 1000).toISOString()}`,
+    );
+    if (!rows.length) break;
+    // Coinbase: [time, low, high, open, close, volume], nieuwste eerst
+    const batch = rows
+      .map(([time, low, high, open, close, volume]) => ({ time, open, high, low, close, volume: volume * close }))
+      .sort((a, b) => a.time - b.time);
+    candles.unshift(...batch.filter((c) => !candles.length || c.time < candles[0].time));
+    end = start;
+    if (rows.length < 250) break;
+  }
+  const out = candles.slice(-spec.bars);
+  if (out.length < minBars(spec)) throw new Error("te weinig Coinbase-data");
+  return out;
 }
 
 async function coingeckoCandles(id: string, spec: IntervalSpec): Promise<Candle[]> {

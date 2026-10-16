@@ -1,8 +1,8 @@
-import type { Analysis, AssetType, SignalRow } from "@/types";
+import type { Analysis, AssetType, Horizon, Opportunity, SignalRow } from "@/types";
 import { UNIVERSE } from "@/lib/api/universe";
 import { mockMode } from "@/lib/api/http";
 import { getAnalysis } from "./analyze";
-import { explainSignal } from "./explain";
+import { estimateHold, explainEasy, longTermPlan, shortTermPlan } from "./explain";
 
 export function toSignalRow(a: Analysis): SignalRow {
   const reasons = Object.values(a.pillars)
@@ -22,7 +22,6 @@ export function toSignalRow(a: Analysis): SignalRow {
     longTerm: { advice: a.longTerm.advice, score: a.longTerm.score },
     tradePlan: a.tradePlan,
     reasons,
-    explanation: explainSignal(a),
     pricesLive: a.dataSources.koersen !== "mock",
     // Rente/inflatie zijn zonder FRED-sleutel altijd indicatief; dat is geen reden tot waarschuwen
     mockSources: Object.entries(a.dataSources)
@@ -45,31 +44,43 @@ export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) =>
   return out;
 }
 
-export async function getSignals(assets: { symbol: string; type: AssetType }[]): Promise<SignalRow[]> {
-  const rows = await mapLimit(assets, 4, async (a) => {
-    try {
-      return toSignalRow(await getAnalysis(a.symbol, a.type));
-    } catch {
-      return null;
-    }
-  });
-  return rows.filter((r): r is SignalRow => r !== null);
+async function analyses(assets: { symbol: string; type: AssetType }[]): Promise<Analysis[]> {
+  const out = await mapLimit(assets, 4, (a) => getAnalysis(a.symbol, a.type).catch(() => null));
+  return out.filter((a): a is Analysis => a !== null);
 }
 
-/**
- * Koopkansen: assets uit de catalogus met een (sterk) koopsignaal op korte termijn
- * en een long-setup. Assets waarvan de koersen alleen als mock-data beschikbaar zijn
- * worden nooit aangeraden (behalve in expliciete mock mode).
- */
-export function pickOpportunities(rows: SignalRow[], allowMock = mockMode()): SignalRow[] {
-  return rows
-    .filter((r) => r.shortTerm.advice === "BUY" || r.shortTerm.advice === "STRONG_BUY")
-    .filter((r) => r.tradePlan.direction === "long")
-    .filter((r) => allowMock || r.pricesLive)
-    .sort((a, b) => b.shortTerm.score - a.shortTerm.score || b.shortTerm.confidence - a.shortTerm.confidence);
+export async function getSignals(assets: { symbol: string; type: AssetType }[]): Promise<SignalRow[]> {
+  return (await analyses(assets)).map(toSignalRow);
+}
+
+const isBuy = (advice: string) => advice === "BUY" || advice === "STRONG_BUY";
+
+/** Mag deze analyse een koopkans zijn voor deze termijn? */
+export function qualifies(row: SignalRow, horizon: Horizon, allowMock = mockMode()): boolean {
+  if (!allowMock && !row.pricesLive) return false; // nooit aanraden op basis van mock-koersen
+  if (horizon === "short") return isBuy(row.shortTerm.advice) && row.tradePlan.direction === "long";
+  // Lange termijn: positief beeld, en niet kopen terwijl het korte-termijnsignaal op verkopen staat
+  return isBuy(row.longTerm.advice) && row.shortTerm.score > -15;
+}
+
+export function toOpportunity(a: Analysis, horizon: Horizon): Opportunity {
+  const row = toSignalRow(a);
+  const plan = horizon === "short" ? shortTermPlan(a) : longTermPlan(a);
+  const hold = estimateHold(a, horizon, plan);
+  const v = horizon === "short" ? a.shortTerm : a.longTerm;
+  return { horizon, row, score: v.score, advice: v.advice, plan, hold, explanation: explainEasy(a, horizon, plan, hold) };
+}
+
+export function buildOpportunities(list: Analysis[], allowMock = mockMode()) {
+  const pick = (horizon: Horizon) =>
+    list
+      .filter((a) => qualifies(toSignalRow(a), horizon, allowMock))
+      .map((a) => toOpportunity(a, horizon))
+      .sort((x, y) => y.score - x.score);
+  return { short: pick("short"), long: pick("long") };
 }
 
 export async function scanUniverse() {
-  const rows = await getSignals(UNIVERSE.map((u) => ({ symbol: u.symbol, type: u.type })));
-  return { scanned: rows.length, generatedAt: Date.now(), opportunities: pickOpportunities(rows) };
+  const list = await analyses(UNIVERSE.map((u) => ({ symbol: u.symbol, type: u.type })));
+  return { scanned: list.length, generatedAt: Date.now(), ...buildOpportunities(list) };
 }

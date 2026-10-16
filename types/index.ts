@@ -309,8 +309,6 @@ export interface SignalRow {
   tradePlan: TradePlan;
   /** De sterkste positieve redenen (factor-labels) */
   reasons: string[];
-  /** Uitleg in gewone taal: waarom dit signaal */
-  explanation: SignalExplanation;
   /** Koersdata is live (niet mock) */
   pricesLive: boolean;
   /** Databronnen die het advies beïnvloeden en nu mock-data zijn (macro telt niet mee) */
@@ -347,8 +345,36 @@ export interface LivePrice {
   currency: string;
 }
 
+/** Uitleg in makkelijke taal, zonder vaktermen. */
 export interface SignalExplanation {
-  summary: string;
-  pros: { title: string; value: string; detail: string }[];
-  cons: { title: string; value: string; detail: string }[];
+  headline: string;
+  why: string[];
+  risks: string[];
+  plan: string;
+  hold: string;
+}
+
+export interface HoldEstimate {
+  /** Bijv. "± 1–3 weken" of "maanden tot jaren" */
+  label: string;
+  minDays: number | null;
+  maxDays: number | null;
+}
+
+/** Een koopkans voor één beleggingstermijn. */
+export interface Opportunity {
+  horizon: Horizon;
+  row: SignalRow;
+  score: number;
+  advice: Advice;
+  plan: {
+    entryLow: number;
+    entryHigh: number;
+    stopLoss: number;
+    target1: number | null;
+    target2: number | null;
+    riskPct: number;
+  };
+  hold: HoldEstimate;
+  explanation: SignalExplanation;
 }

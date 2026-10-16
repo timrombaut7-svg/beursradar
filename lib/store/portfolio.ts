@@ -17,6 +17,8 @@ export interface Position {
   stopLoss?: number | null;
   target1?: number | null;
   target2?: number | null;
+  /** "short" = weken, "long" = maanden tot jaren */
+  horizon?: "short" | "long";
 }
 
 interface PortfolioState {

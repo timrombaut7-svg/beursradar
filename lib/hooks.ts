@@ -1,6 +1,6 @@
 "use client";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import type { Analysis, AssetType, Candle, LivePrice, MarketOverview, Quote, SearchResult, SignalRow, Timeframe } from "@/types";
+import type { Analysis, AssetType, Candle, LivePrice, MarketOverview, Opportunity, Quote, SearchResult, SignalRow, Timeframe } from "@/types";
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -81,7 +81,7 @@ export function useAiSummary(type: AssetType, symbol: string, enabled: boolean) 
 export function useScan() {
   return useQuery({
     queryKey: ["scan"],
-    queryFn: () => getJson<{ scanned: number; generatedAt: number; opportunities: SignalRow[] }>("/api/scan"),
+    queryFn: () => getJson<{ scanned: number; generatedAt: number; short: Opportunity[]; long: Opportunity[] }>("/api/scan"),
     staleTime: 30_000,
     refetchInterval: 60_000,
   });

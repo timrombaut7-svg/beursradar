@@ -133,8 +133,9 @@ export function technicalFactors(
 // Fundamentele Analyse
 // ---------------------------------------------------------------------------
 
-export function fundamentalFactors(f: Fundamentals, price: number): ScoreFactor[] {
-  return f.kind === "stock" ? stockFactors(f, price) : cryptoFactors(f);
+/** `allowEstimates`: ook geschatte waarden meetellen (alleen in demo-modus). */
+export function fundamentalFactors(f: Fundamentals, price: number, allowEstimates = false): ScoreFactor[] {
+  return f.kind === "stock" ? stockFactors(f, price) : cryptoFactors(f, allowEstimates);
 }
 
 function stockFactors(f: StockFundamentals, price: number): ScoreFactor[] {
@@ -182,7 +183,7 @@ function stockFactors(f: StockFundamentals, price: number): ScoreFactor[] {
   return out;
 }
 
-function cryptoFactors(f: CryptoFundamentals): ScoreFactor[] {
+function cryptoFactors(f: CryptoFundamentals, allowEstimates: boolean): ScoreFactor[] {
   const out: ScoreFactor[] = [];
   const F = "fundamental" as const;
   if (f.annualInflation !== null) {
@@ -207,7 +208,8 @@ function cryptoFactors(f: CryptoFundamentals): ScoreFactor[] {
     const rk = f.marketCapRank;
     out.push(factor(F, "rank", "Marktkapitalisatie-rang", `#${rk}`, rk <= 10 ? 1 : rk > 100 ? -1 : 0, 1, LONG, rk <= 10 ? "Top-10 asset: hoge liquiditeit en adoptie." : rk > 100 ? "Kleine cap: hoger idiosyncratisch risico." : "Mid-cap."));
   }
-  const ch = f.network.activeAddressesChangePct;
+  // Netwerkactiviteit vereist betaalde on-chain data; een schatting telt niet mee
+  const ch = f.network.source === "mock" && !allowEstimates ? null : f.network.activeAddressesChangePct;
   if (ch !== null) {
     out.push(factor(F, "network", "Netwerkactiviteit (30d)", `${ch > 0 ? "+" : ""}${ch.toFixed(1)}%`, ch > 5 ? 1 : ch < -5 ? -1 : 0, 1, LONG, ch > 5 ? "Groeiend aantal actieve adressen." : ch < -5 ? "Dalende netwerkactiviteit." : "Stabiele netwerkactiviteit."));
   }

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Check, X } from "lucide-react";
-import type { SignalRow } from "@/types";
+import type { Opportunity } from "@/types";
 import { usePortfolio } from "@/lib/store/portfolio";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/format";
@@ -11,7 +11,8 @@ import { cn } from "@/lib/utils";
 const input = "mt-1 h-9 w-full rounded-lg border border-border bg-panel-2 px-3 font-mono text-sm outline-none focus:border-accent/60";
 
 /** "Gekocht"-knop: legt de positie vast mét het tradeplan van dit moment. */
-export function BuyDialog({ row }: { row: SignalRow }) {
+export function BuyDialog({ opportunity }: { opportunity: Opportunity }) {
+  const row = opportunity.row;
   const add = usePortfolio((s) => s.add);
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("1000");
@@ -19,7 +20,7 @@ export function BuyDialog({ row }: { row: SignalRow }) {
   const p = Number(price.replace(",", "."));
   const a = Number(amount.replace(",", "."));
   const quantity = p > 0 && a > 0 ? a / p : 0;
-  const plan = row.tradePlan;
+  const plan = opportunity.plan;
 
   const confirm = () => {
     if (!(quantity > 0)) return;
@@ -34,6 +35,7 @@ export function BuyDialog({ row }: { row: SignalRow }) {
       stopLoss: plan.stopLoss,
       target1: plan.target1,
       target2: plan.target2,
+      horizon: opportunity.horizon,
     });
     setOpen(false);
   };
@@ -52,7 +54,8 @@ export function BuyDialog({ row }: { row: SignalRow }) {
             <div>
               <Dialog.Title className="text-base font-semibold">{row.symbol} gekocht</Dialog.Title>
               <Dialog.Description className="text-xs text-muted">
-                Leg je aankoop vast. Beursradar volgt daarna de stop-loss en koersdoelen en zegt wanneer je moet verkopen.
+                Leg je aankoop vast. Beursradar houdt het daarna voor je in de gaten en zegt wanneer je moet verkopen
+                ({opportunity.horizon === "short" ? `korte termijn, houden ${opportunity.hold.label}` : "lange termijn, maanden tot jaren"}).
               </Dialog.Description>
             </div>
             <Dialog.Close className="rounded p-1 text-muted hover:text-text" aria-label="Sluiten">
@@ -73,14 +76,16 @@ export function BuyDialog({ row }: { row: SignalRow }) {
             Aantal: <span className="font-mono text-text">{quantity > 0 ? Number(quantity.toPrecision(6)) : "—"}</span>
           </p>
           <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
-            {[
-              ["Stop-loss", plan.stopLoss, "text-bear"],
-              ["Koersdoel 1", plan.target1, "text-bull"],
-              ["Koersdoel 2", plan.target2, "text-bull"],
-            ].map(([label, v, cls]) => (
-              <div key={label as string} className="rounded-lg bg-panel-2 px-2 py-2">
-                <div className="text-muted">{label as string}</div>
-                <div className={cn("font-mono font-semibold tabular", cls as string)}>{formatPrice(v as number, row.currency)}</div>
+            {(
+              [
+                ["Verkopen onder", plan.stopLoss, "text-bear"],
+                ["Eerste doel", plan.target1, "text-bull"],
+                ["Tweede doel", plan.target2, "text-bull"],
+              ] as const
+            ).map(([label, v, cls]) => (
+              <div key={label} className="rounded-lg bg-panel-2 px-2 py-2">
+                <div className="text-muted">{label}</div>
+                <div className={cn("font-mono font-semibold tabular", cls)}>{v ? formatPrice(v, row.currency) : "—"}</div>
               </div>
             ))}
           </div>
