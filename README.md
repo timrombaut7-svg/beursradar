@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 76 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 87 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -114,6 +114,19 @@ naar (sterk) verkopen → verkopen; koersdoel 1 → deels winst nemen en stop na
 **Backtest:** walk-forward over 252 (aandelen) / 365 (crypto) bars met uitsluitend het technische deel
 (fundamentals/sentiment zijn historisch niet beschikbaar). Instap bij TA-score ≥ +20, uitstap ≤ −10
 of 2×ATR stop, uitvoering op de open van de volgende bar, 0,1% kosten per kant.
+
+## AI-assistent
+
+Op `/assistent` (en via **Vraag de AI** op elke analysepagina) kun je vragen stellen als *"denk je dat NVIDIA gaat
+dalen?"* of *"moet ik iets verkopen?"*. De assistent is Claude (`claude-opus-5-5`, effort `low`, met automatische
+fallback bij een weigering) en gebruikt via tools de echte data van de app: `search_asset`, `get_analysis`,
+`get_opportunities`, `get_my_portfolio` en `get_market_overview` (`lib/chat/tools.ts`). Antwoorden streamen naar de
+browser (`/api/chat`, NDJSON).
+
+- Aanzetten: `ANTHROPIC_API_KEY` instellen (Vercel → Settings → Environment Variables) en opnieuw deployen.
+- Kosten: ± $0,05 per vraag. Daglimieten: `CHAT_PER_USER_DAILY` (standaard 20) en `CHAT_GLOBAL_DAILY` (standaard 100),
+  geteld in Postgres (`ChatUsage`). Met `CHAT_ACCESS_CODE` is de assistent alleen bruikbaar met een code.
+- Het gesprek staat in de browser; alleen de laatste 12 berichten (als tekst) gaan mee naar de API.
 
 ## Opslag (Prisma + PostgreSQL)
 

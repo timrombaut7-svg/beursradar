@@ -51,3 +51,12 @@ model Position {
 
   @@index([profileId])
 }
+
+/// Aantal AI-chatberichten per dag (per profiel en totaal), om kosten te begrenzen.
+model ChatUsage {
+  key   String
+  day   String // YYYY-MM-DD (UTC)
+  count Int    @default(0)
+
+  @@id([key, day])
+}
