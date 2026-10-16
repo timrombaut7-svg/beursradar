@@ -58,6 +58,7 @@ const row = (over: Partial<SignalRow>): SignalRow => ({
   longTerm: { advice: "HOLD", score: 0 },
   tradePlan: { direction: "long", entryLow: 9, entryHigh: 10, stopLoss: 8, target1: 12, target2: 14, riskReward1: 1.5, riskReward2: 3, riskPct: 0.1, rationale: [] },
   reasons: [],
+  explanation: { summary: "", pros: [], cons: [] },
   pricesLive: true,
   mockSources: [],
   ...over,

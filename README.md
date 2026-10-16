@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 63 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 69 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -88,7 +88,16 @@ Betrouwbaarheid = eensgezindheid van de pijlers × signaalsterkte × aandeel liv
 die support, target 1/2 op de eerstvolgende resistance-/Fibonacci-niveaus met minimaal 1:1 resp. 1:2
 risk/reward. Shorts worden berekend door het prijsvlak te spiegelen.
 
-**Kansen & verkoopadvies:** `/api/scan` analyseert de hele catalogus (max. 4 tegelijk, 10 min cache) en
+**Live data:** `/api/prices` haalt in één batch alle aandelen (Yahoo) en alle crypto (CoinGecko) op, 15 s gecachet
+(plus 10 s CDN-cache, dus weinig API-calls bij veel bezoekers). De live koers wordt in de laatste dagcandle verwerkt,
+zodat indicatoren en signalen er meteen op reageren; analyses en de scan worden elke minuut herberekend. De UI
+ververst koersen elke 15 s (met beursstatus open/gesloten) en signalen elke minuut. Europese beurzen kunnen via Yahoo
+tot 15 min vertraagd zijn; buiten openingstijden verandert een aandeelkoers niet.
+
+**Uitleg:** elke kans krijgt een samenvatting in gewone taal plus de sterkste argumenten vóór en de risico's,
+rechtstreeks uit de beslissingsmatrix (`lib/engine/explain.ts`).
+
+**Kansen & verkoopadvies:** `/api/scan` analyseert de hele catalogus (max. 4 tegelijk, 1 min cache) en
 toont assets met KOOP/STERK KOOP op korte termijn én een long-plan; assets met alleen mock-koersen worden
 nooit aangeraden. Met **Gekocht** wordt de positie opgeslagen inclusief stop-loss en koersdoelen van dat
 moment. Verkoopadvies per positie: stop-loss geraakt → verkopen; koersdoel 2 → verkopen; signaal omgeslagen

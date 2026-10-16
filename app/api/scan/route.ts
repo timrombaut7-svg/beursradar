@@ -9,8 +9,9 @@ export const maxDuration = 60;
 /** GET /api/scan — koopkansen in de hele catalogus (aandelen + crypto). */
 export async function GET() {
   try {
-    const result = await cached("scan:universe", 600, scanUniverse);
-    return NextResponse.json(result, { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=900" } });
+    // Elke minuut opnieuw berekend met de nieuwste live koersen
+    const result = await cached("scan:universe", 60, scanUniverse);
+    return NextResponse.json(result, { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" } });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }

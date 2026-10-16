@@ -8,6 +8,8 @@ import { getMacro } from "@/lib/api/macro";
 import { findInUniverse } from "@/lib/api/universe";
 import { cached } from "@/lib/api/http";
 import { assertResolvable } from "@/lib/api/guard";
+import { getLivePrice } from "@/lib/api/livePrices";
+import { applyLivePrice } from "./live";
 import { aggregateSentiment } from "@/lib/nlp/sentiment";
 import { beta, historicalVaR, historicalVolatility, maxDrawdown, sharpe } from "@/lib/indicators";
 import { computeSeries, technicalSnapshot } from "./technical";
@@ -42,23 +44,29 @@ export async function analyzeAsset(rawSymbol: string, type: AssetType): Promise<
   const barsPerYear = type === "crypto" ? 365 : 252;
   const benchmarkSymbol = type === "crypto" ? "BTC" : "SPY";
 
-  const [main, bench, macro] = await Promise.all([
+  const [main, bench, macro, live] = await Promise.all([
     getCandles(symbol, type),
     symbol === benchmarkSymbol ? Promise.resolve(null) : getCandles(benchmarkSymbol, type),
     getMacro(),
+    getLivePrice(symbol, type).catch(() => null),
   ]);
-  const { candles, live: candlesLive } = main;
+  // De meest recente live koers telt mee in alle indicatoren en signalen
+  const candles = live ? applyLivePrice(main.candles, live) : main.candles;
+  const candlesLive = main.live;
   assertResolvable(symbol, type, candlesLive);
   if (candles.length < 60) throw new Error(`Onvoldoende koersdata voor ${symbol}`);
 
   const closes = candles.map((c) => c.close);
-  const [quote, fundamentals, fearGreed] = await Promise.all([
+  const [baseQuote, fundamentals, fearGreed] = await Promise.all([
     type === "crypto" ? getCryptoQuote(symbol, candles, candlesLive) : getStockQuote(symbol, candles, candlesLive),
     type === "crypto"
       ? getCryptoFundamentals(symbol, candles[candles.length - 1].close, closes)
       : getStockFundamentals(symbol, candles[candles.length - 1].close),
     type === "crypto" ? getCryptoFearGreed() : getStockFearGreed(bench ?? main),
   ]);
+  const quote = live
+    ? { ...baseQuote, price: live.price, change24h: live.change, changePct24h: live.changePct, currency: live.currency || baseQuote.currency, source: "live" as const, updatedAt: live.time }
+    : baseQuote;
   const news = await getNews(symbol, quote.name, type);
 
   const asset: AssetMeta = {
@@ -122,7 +130,8 @@ export async function analyzeAsset(rawSymbol: string, type: AssetType): Promise<
   };
 }
 
-/** Analyse met 5 minuten server-cache; gedeeld door de analysepagina en de kansen-scan. */
+/** Analyse met 1 minuut server-cache; gedeeld door de analysepagina en de kansen-scan. */
 export function getAnalysis(symbol: string, type: AssetType): Promise<Analysis> {
-  return cached(`analysis:${type}:${symbol.toUpperCase()}`, 300, () => analyzeAsset(symbol, type));
+  // Kort cachen: de live koers ververst elke 15 s, signalen worden elke minuut herberekend
+  return cached(`analysis:${type}:${symbol.toUpperCase()}`, 60, () => analyzeAsset(symbol, type));
 }

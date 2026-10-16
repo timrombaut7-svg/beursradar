@@ -309,6 +309,8 @@ export interface SignalRow {
   tradePlan: TradePlan;
   /** De sterkste positieve redenen (factor-labels) */
   reasons: string[];
+  /** Uitleg in gewone taal: waarom dit signaal */
+  explanation: SignalExplanation;
   /** Koersdata is live (niet mock) */
   pricesLive: boolean;
   /** Databronnen die het advies beïnvloeden en nu mock-data zijn (macro telt niet mee) */
@@ -325,4 +327,28 @@ export interface SellAdvice {
   toStopPct: number | null;
   toTarget1Pct: number | null;
   toTarget2Pct: number | null;
+}
+
+// ---------------------------------------------------------------------------
+// Live koersen & uitleg
+// ---------------------------------------------------------------------------
+
+export type MarketState = "open" | "pre" | "post" | "closed" | "24/7";
+
+export interface LivePrice {
+  symbol: string;
+  type: AssetType;
+  price: number;
+  change: number;
+  changePct: number; // in procenten, 1.5 = +1,5%
+  /** Tijdstip van de laatste koers (ms) */
+  time: number;
+  marketState: MarketState;
+  currency: string;
+}
+
+export interface SignalExplanation {
+  summary: string;
+  pros: { title: string; value: string; detail: string }[];
+  cons: { title: string; value: string; detail: string }[];
 }
