@@ -291,3 +291,38 @@ export interface MarketOverview {
   macro: MacroData;
   movers: Quote[];
 }
+
+// ---------------------------------------------------------------------------
+// Kansen & verkoopadvies
+// ---------------------------------------------------------------------------
+
+/** Compacte samenvatting van een analyse, voor lijsten. */
+export interface SignalRow {
+  symbol: string;
+  name: string;
+  type: AssetType;
+  currency: string;
+  price: number;
+  changePct24h: number;
+  shortTerm: { advice: Advice; score: number; confidence: number };
+  longTerm: { advice: Advice; score: number };
+  tradePlan: TradePlan;
+  /** De sterkste positieve redenen (factor-labels) */
+  reasons: string[];
+  /** Koersdata is live (niet mock) */
+  pricesLive: boolean;
+  /** Databronnen die het advies beïnvloeden en nu mock-data zijn (macro telt niet mee) */
+  mockSources: string[];
+}
+
+export type SellAction = "SELL" | "TAKE_PROFIT" | "HOLD";
+
+export interface SellAdvice {
+  action: SellAction;
+  title: string;
+  reason: string;
+  /** Afstand tot stop-loss en targets als fractie van de koers (positief = nog ruimte) */
+  toStopPct: number | null;
+  toTarget1Pct: number | null;
+  toTarget2Pct: number | null;
+}

@@ -1,13 +1,14 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Briefcase, LayoutDashboard, Moon, Sun } from "lucide-react";
+import { Activity, Briefcase, LayoutDashboard, Lightbulb, Moon, Sun } from "lucide-react";
 import { SearchBar } from "./SearchBar";
 import { useUi } from "@/lib/store/ui";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/kansen", label: "Kansen", icon: Lightbulb },
   { href: "/portfolio", label: "Portfolio", icon: Briefcase },
 ];
 

@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 63 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -27,7 +27,8 @@ valt automatisch terug op realistische mock-data. `USE_MOCK_DATA=1` forceert vol
 app/
   page.tsx                     Dashboard: Fear & Greed, macro, markten, watchlist
   asset/[type]/[symbol]/       4-pijler analysepagina
-  portfolio/                   Portfolio-simulator (PnL, risicospreiding)
+  portfolio/                   Portfolio-simulator (PnL, risicospreiding, verkoopadvies)
+  kansen/                      Koopkansen uit de hele catalogus + verkoopadvies per positie
   api/
     analysis/[type]/[symbol]   Volledige analyse (pijlers, signaal, plan, backtest)
     candles/[type]/[symbol]    OHLCV + indicator-overlays per tijdsframe (1H/1D/1W/1M/1Y)
@@ -86,6 +87,12 @@ Betrouwbaarheid = eensgezindheid van de pijlers × signaalsterkte × aandeel liv
 **Executieplan:** instapzone rond de dichtstbijzijnde support (binnen 4×ATR), stop-loss 1×ATR onder
 die support, target 1/2 op de eerstvolgende resistance-/Fibonacci-niveaus met minimaal 1:1 resp. 1:2
 risk/reward. Shorts worden berekend door het prijsvlak te spiegelen.
+
+**Kansen & verkoopadvies:** `/api/scan` analyseert de hele catalogus (max. 4 tegelijk, 10 min cache) en
+toont assets met KOOP/STERK KOOP op korte termijn én een long-plan; assets met alleen mock-koersen worden
+nooit aangeraden. Met **Gekocht** wordt de positie opgeslagen inclusief stop-loss en koersdoelen van dat
+moment. Verkoopadvies per positie: stop-loss geraakt → verkopen; koersdoel 2 → verkopen; signaal omgeslagen
+naar (sterk) verkopen → verkopen; koersdoel 1 → deels winst nemen en stop naar instapprijs; anders houden.
 
 **Backtest:** walk-forward over 252 (aandelen) / 365 (crypto) bars met uitsluitend het technische deel
 (fundamentals/sentiment zijn historisch niet beschikbaar). Instap bij TA-score ≥ +20, uitstap ≤ −10

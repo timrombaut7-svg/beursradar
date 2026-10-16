@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { formatPct, formatPrice } from "@/lib/format";
 import { searchUniverse } from "@/lib/api/universe";
 import { cn } from "@/lib/utils";
+import { usePositionAdvice } from "@/lib/usePositionAdvice";
+import { SellAdviceBadge } from "@/components/kansen/AdviceBadge";
 
 const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4", "#84cc16", "#f97316", "#ec4899", "#64748b"];
 
@@ -110,6 +112,7 @@ export function PortfolioView() {
     return [...seen.values()];
   }, [list]);
   const { data: quotes = [], dataUpdatedAt } = useQuotes(assets);
+  const { rows: adviceRows } = usePositionAdvice(list);
 
   const rows = list.map((p) => {
     const q = quotes.find((x) => x.symbol === p.symbol && x.type === p.type);
@@ -159,7 +162,7 @@ export function PortfolioView() {
             <p className="p-6 text-center text-sm text-muted">Nog geen posities. Voeg hierboven een fictieve aankoop toe.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-sm">
+              <table className="w-full min-w-[760px] text-sm">
                 <thead className="text-left text-xs text-muted">
                   <tr className="border-b border-border">
                     <th className="px-4 py-2">Asset</th>
@@ -168,6 +171,7 @@ export function PortfolioView() {
                     <th className="px-2 text-right">Koers</th>
                     <th className="px-2 text-right">Waarde</th>
                     <th className="px-2 text-right">PnL</th>
+                    <th className="px-2">Advies</th>
                     <th />
                   </tr>
                 </thead>
@@ -189,6 +193,18 @@ export function PortfolioView() {
                       <td className={cn("px-2 text-right font-mono tabular", pnl >= 0 ? "text-bull" : "text-bear")}>
                         {formatPrice(pnl, p.currency)}
                         <div className="text-[11px]">{formatPct(pnlPct, 2, true)}</div>
+                      </td>
+                      <td className="px-2">
+                        {(() => {
+                          const a = adviceRows.find((x) => x.position.id === p.id)?.advice;
+                          return a ? (
+                            <span title={a.reason}>
+                              <SellAdviceBadge action={a.action} />
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted">…</span>
+                          );
+                        })()}
                       </td>
                       <td className="px-2">
                         <button aria-label={`Verwijder ${p.symbol}`} onClick={() => remove(p.id)} className="rounded p-1 text-muted hover:text-bear">

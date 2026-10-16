@@ -5,9 +5,12 @@ import { parseBody, positionInput } from "@/lib/server/schemas";
 
 export const dynamic = "force-dynamic";
 
-type Row = { id: string; symbol: string; name: string; type: string; quantity: number; buyPrice: number; buyDate: string; currency: string };
-const serialize = ({ id, symbol, name, type, quantity, buyPrice, buyDate, currency }: Row) => ({
-  id, symbol, name, type, quantity, buyPrice, buyDate, currency,
+type Row = {
+  id: string; symbol: string; name: string; type: string; quantity: number; buyPrice: number; buyDate: string; currency: string;
+  stopLoss: number | null; target1: number | null; target2: number | null;
+};
+const serialize = ({ id, symbol, name, type, quantity, buyPrice, buyDate, currency, stopLoss, target1, target2 }: Row) => ({
+  id, symbol, name, type, quantity, buyPrice, buyDate, currency, stopLoss, target1, target2,
 });
 
 export async function GET(req: NextRequest) {
