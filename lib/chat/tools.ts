@@ -4,6 +4,8 @@ import type { Analysis, AssetType } from "@/types";
 import { getAnalysis } from "@/lib/engine/analyze";
 import { qualifies, toOpportunity, toSignalRow, scanUniverse } from "@/lib/engine/signals";
 import { evidenceSentence } from "@/lib/evidenceText";
+import { allocate } from "@/lib/engine/allocate";
+import { getRatesToEur } from "@/lib/api/livePrices";
 import { sellAdvice } from "@/lib/engine/sellAdvice";
 import { searchUniverse } from "@/lib/api/universe";
 import { searchStocks } from "@/lib/api/stocks";
@@ -125,15 +127,17 @@ export function buildChatTools(ctx: { positions: ChatPosition[]; report: (status
   const getOpportunities = betaZodTool({
     name: "get_opportunities",
     description:
-      "Lijst van assets die Beursradar nu aanraadt om te kopen, voor de korte termijn (weken) of lange termijn (maanden tot jaren), optioneel alleen aandelen of alleen crypto. Gebruik dit voor vragen als 'wat moet ik kopen?'.",
+      "Lijst van assets die Beursradar nu aanraadt om te kopen, voor de korte termijn (weken) of lange termijn (maanden tot jaren), optioneel alleen aandelen, alleen ETF's of alleen crypto. Gebruik dit voor vragen als 'wat moet ik kopen?'.",
     inputSchema: z.object({
       horizon: z.enum(["short", "long"]).describe("short = weken, long = maanden tot jaren"),
-      type: z.enum(["stock", "crypto", "all"]).default("all"),
+      type: z.enum(["stock", "etf", "crypto", "all"]).default("all"),
     }),
     run: async ({ horizon, type }) => {
       ctx.report(horizon === "short" ? "Koopkansen voor de korte termijn bekijken…" : "Koopkansen voor de lange termijn bekijken…");
       const scan = await cached("scan:universe", 60, scanUniverse);
-      const list = (horizon === "short" ? scan.short : scan.long).filter((o) => type === "all" || o.row.type === type);
+      const list = (horizon === "short" ? scan.short : scan.long).filter((o) =>
+        type === "all" ? true : type === "etf" ? o.row.etf : type === "stock" ? o.row.type === "stock" && !o.row.etf : o.row.type === type,
+      );
       return JSON.stringify({
         geanalyseerd: scan.scanned,
         kansen: list.slice(0, 8).map((o) => ({
@@ -148,6 +152,37 @@ export function buildChatTools(ctx: { positions: ChatPosition[]; report: (status
           waarom: o.explanation.why,
           letOp: o.explanation.risks,
         })),
+      });
+    },
+  });
+
+  const planBudget = betaZodTool({
+    name: "plan_budget",
+    description:
+      "Verdeelt een budget in euro over de ETF's, aandelen en crypto die nu de historische toets halen, volgens een risicoprofiel. Gebruik dit voor vragen als 'ik heb 1000 euro, hoe verdeel ik dat?'. Vraag naar het risico als de gebruiker het niet noemt, of gebruik 'balanced'.",
+    inputSchema: z.object({
+      amount: z.number().min(10).max(10_000_000).describe("Bedrag in euro"),
+      risk: z.enum(["careful", "balanced", "bold"]).default("balanced").describe("careful = voorzichtig, balanced = gemiddeld, bold = avontuurlijk"),
+      horizon: z.enum(["short", "long"]).default("long"),
+    }),
+    run: async ({ amount, risk, horizon }) => {
+      ctx.report("Je budget verdelen over de beste kansen…");
+      const [scan, rates] = await Promise.all([cached("scan:universe", 60, scanUniverse), getRatesToEur()]);
+      const plan = allocate(amount, risk, horizon, horizon === "short" ? scan.short : scan.long, rates);
+      return JSON.stringify({
+        bedrag: plan.amount,
+        reserve: plan.reserve,
+        verdeling: plan.items.map((i) => ({
+          symbol: i.opportunity.row.symbol,
+          naam: i.opportunity.row.name,
+          groep: i.bucket,
+          euro: i.amount,
+          aandeel: round(i.weight, 3),
+          stuks: round(i.units, 4),
+          valuta: i.opportunity.row.currency,
+          waarom: i.opportunity.explanation.why[0],
+        })),
+        tips: plan.notes,
       });
     },
   });
@@ -200,5 +235,5 @@ export function buildChatTools(ctx: { positions: ChatPosition[]; report: (status
     },
   });
 
-  return [searchAsset, getAssetAnalysis, getOpportunities, getPortfolio, getMarket];
+  return [searchAsset, getAssetAnalysis, getOpportunities, planBudget, getPortfolio, getMarket];
 }

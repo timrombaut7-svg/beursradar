@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { answerLocally, findAsset, parseQuestion } from "@/lib/chat/local";
+import { answerLocally, findAsset, parseAmount, parseQuestion } from "@/lib/chat/local";
 import { analyzeAsset } from "@/lib/engine/analyze";
 
 beforeAll(() => {
@@ -106,4 +106,31 @@ describe("ETF's", () => {
     const p = parseQuestion("Welke ETF raad je aan voor de lange termijn?");
     expect(p).toMatchObject({ intent: "opportunities", kind: "etf", horizon: "long" });
   });
+});
+
+describe("Budget verdelen via de assistent", () => {
+  it.each([
+    ["Ik heb 1000 euro, hoe moet ik dat verdelen?", 1000],
+    ["Hoe verdeel ik € 1.500?", 1500],
+    ["Wat moet ik kopen met 2,5k euro", 2500],
+    ["mijn budget is 750", 750],
+    ["Waarin steek ik 300eur?", 300],
+  ])("%s → € %i", (q, amount) => {
+    expect(parseAmount(q)).toBe(amount);
+    expect(parseQuestion(q)).toMatchObject({ intent: "budget", amount });
+  });
+
+  it("leest het risico en laat vragen over één asset met rust", () => {
+    expect(parseQuestion("Verdeel 1000 euro voorzichtig").risk).toBe("careful");
+    expect(parseQuestion("Ik wil 1000 euro avontuurlijk beleggen").risk).toBe("bold");
+    expect(parseQuestion("Is bitcoin onder 100000 euro een goede koop?").intent).toBe("buy");
+    expect(parseAmount("Gaat NVIDIA dalen?")).toBeNull();
+  });
+
+  it("geeft een plan dat het hele bedrag verdeelt", async () => {
+    const answer = await answerLocally("Ik heb 1000 euro, hoe moet ik dat verdelen?", [], [], () => {});
+    expect(answer).toMatch(/Zo zou de app \*\*€ 1\.000\*\* verdelen \(gemiddeld risico, lange termijn\)/);
+    expect(answer).toMatch(/Budget/);
+    expect(answer).toMatch(/geen financieel advies/);
+  }, 60_000);
 });

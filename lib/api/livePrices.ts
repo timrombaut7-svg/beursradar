@@ -128,3 +128,16 @@ export async function getLivePrice(symbol: string, type: AssetType): Promise<Liv
 export function universeAssets() {
   return UNIVERSE_ASSETS;
 }
+
+/**
+ * Wisselkoersen naar euro (hoeveel euro is 1 eenheid van de valuta), 10 minuten gecachet.
+ * Zonder live koers ontbreekt de valuta: dan rekent de app geen aantal stuks uit.
+ */
+export async function getRatesToEur(): Promise<Record<string, number>> {
+  if (mockMode()) return { EUR: 1 };
+  return cached("fx:eur", 600, async () => {
+    const [eurusd] = await stockPrices(["EURUSD=X"]);
+    if (!eurusd || !(eurusd.price > 0)) throw new Error("geen EUR/USD-koers");
+    return { EUR: 1, USD: 1 / eurusd.price };
+  }).catch(() => ({ EUR: 1 }));
+}

@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 143 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 157 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -143,6 +143,22 @@ opkomende markten (EMIM) en goud (GLD). ETF's krijgen dezelfde technische, senti
 geen bedrijfscijfers (die zeggen niets over een mandje). Voor de lange termijn hoeft een brede ETF in de
 historische toets niet beter te doen dan willekeurig instappen: daar is spreiden zelf de strategie. In de lijst
 met kansen staat per index één ETF; de andere worden als alternatief genoemd.
+
+## Budget verdelen
+
+Op `/budget` vul je een bedrag, risicoprofiel en termijn in; `lib/engine/allocate.ts` verdeelt het
+("kern en satellieten") over de kansen die de historische toets halen:
+
+| Profiel | ETF's | Aandelen | Crypto |
+| --- | --- | --- | --- |
+| Voorzichtig | 80% | 20% | 0% |
+| Gemiddeld | 60% | 30% | 10% |
+| Avontuurlijk | 40% | 40% | 20% |
+
+Binnen een groep naar score, met max. 2 ETF's, 5 aandelen en 2 crypto, max. 10% van het budget per los
+aandeel of crypto (bij kleine budgetten minstens 2 × € 50) en minimaal ± € 50 per aankoop. Een lege of te kleine
+groep schuift door naar de ETF's; zonder geschikte kansen blijft het geld als reserve over. Het aantal stuks wordt
+met de live EUR/USD-koers berekend. De assistent beantwoordt ook "ik heb 1000 euro, hoe verdeel ik dat?".
 
 ## Betrouwbaarheid van de tips
 

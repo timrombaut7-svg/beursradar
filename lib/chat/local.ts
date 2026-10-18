@@ -9,19 +9,24 @@ import { getStockCandles } from "@/lib/api/stocks";
 import { formatPct, formatPrice } from "@/lib/format";
 import type { ChatPosition } from "./tools";
 import { evidenceSentence, rejectionReason } from "@/lib/evidenceText";
+import { allocate, RISK_PROFILES, type RiskProfile } from "@/lib/engine/allocate";
+import { getRatesToEur } from "@/lib/api/livePrices";
 
 /**
  * Gratis, ingebouwde assistent: geen AI-dienst nodig. Herkent de vraag (welk asset,
  * wat de gebruiker wil weten) en bouwt het antwoord uit de live analyses van de app.
  */
 
-export type Intent = "down" | "up" | "buy" | "sell" | "overview" | "opportunities" | "portfolio" | "market" | "help";
+export type Intent = "down" | "up" | "buy" | "sell" | "overview" | "opportunities" | "portfolio" | "market" | "budget" | "help";
 
 export interface ParsedQuestion {
   intent: Intent;
   asset: { symbol: string; type: AssetType } | null;
   horizon: "short" | "long" | null;
   kind: AssetType | "etf" | null;
+  /** Budget in euro als de vraag een bedrag noemt ("ik heb 1000 euro") */
+  amount: number | null;
+  risk: RiskProfile | null;
 }
 
 // Extra namen waarmee mensen naar een asset verwijzen (kleine letters)
@@ -114,6 +119,17 @@ export function findAsset(text: string): { symbol: string; type: AssetType } | n
   return { symbol, type };
 }
 
+/** Bedrag in euro uit een zin: "€ 1.500", "1500 euro", "2,5k" of "1000eur". */
+export function parseAmount(text: string): number | null {
+  const m =
+    /€\s*(\d[\d.\s]*(?:,\d+)?)\s*(k)?/i.exec(text) ??
+    /(\d[\d.\s]*(?:,\d+)?)\s*(k)?\s*(?:€|euro|eur\b)/i.exec(text) ??
+    /(?:budget|verdelen|verdeel)\D{0,25}?(\d[\d.]*(?:,\d+)?)\s*(k)?/i.exec(text);
+  if (!m) return null;
+  const value = Number(m[1].replace(/[\s.]/g, "").replace(",", ".")) * (m[2] ? 1000 : 1);
+  return Number.isFinite(value) && value >= 10 ? Math.round(value) : null;
+}
+
 const has = (t: string, words: string[]) => words.some((w) => new RegExp(`(^|[^a-zà-ü])${w}`, "i").test(t));
 
 export function parseQuestion(text: string, history: string[] = []): ParsedQuestion {
@@ -139,8 +155,18 @@ export function parseQuestion(text: string, history: string[] = []): ParsedQuest
         ? "stock"
         : null;
 
+  const amount = parseAmount(text);
+  const risk: RiskProfile | null = has(t, ["voorzichtig", "veilig", "weinig risico", "laag risico", "defensief"])
+    ? "careful"
+    : has(t, ["avontuurlijk", "veel risico", "hoog risico", "agressief", "durf"])
+      ? "bold"
+      : has(t, ["gemiddeld", "neutraal"])
+        ? "balanced"
+        : null;
+
   let intent: Intent;
-  if (has(t, ["mijn portfolio", "mijn aandelen", "mijn posities", "mijn crypto", "wat ik heb", "mijn beleggingen", "portefeuille"])) intent = "portfolio";
+  if (amount !== null && !ownAsset && has(t, ["verdel", "verdeel", "budget", "beleggen", "investeren", "inleggen", "steken", "spreiden", "waarin", "waar in", "wat moet ik", "wat kan ik", "kopen"])) intent = "budget";
+  else if (has(t, ["mijn portfolio", "mijn aandelen", "mijn posities", "mijn crypto", "wat ik heb", "mijn beleggingen", "portefeuille"])) intent = "portfolio";
   else if (asset && (ownAsset || followUp)) {
     if (has(t, ["dalen", "zakken", "crash", "omlaag", "vallen", "naar beneden", "dalend"])) intent = "down";
     else if (has(t, ["stijgen", "omhoog", "naar boven", "stijgend", "to the moon"])) intent = "up";
@@ -152,7 +178,8 @@ export function parseQuestion(text: string, history: string[] = []): ParsedQuest
   else if (has(t, ["markt", "stemming", "angst", "hebzucht", "fear", "greed", "sentiment", "beurs"])) intent = "market";
   else intent = "help";
 
-  return { intent, asset: intent === "opportunities" || intent === "market" || intent === "help" || intent === "portfolio" ? null : asset, horizon, kind };
+  const general = intent === "opportunities" || intent === "market" || intent === "help" || intent === "portfolio" || intent === "budget";
+  return { intent, asset: general ? null : asset, horizon, kind, amount, risk };
 }
 
 const ADVICE_WORDS: Record<Advice, string> = {
@@ -292,12 +319,37 @@ async function marketAnswer(): Promise<string> {
   ].join("\n\n");
 }
 
+async function budgetAnswer(p: ParsedQuestion): Promise<string> {
+  const amount = p.amount!;
+  const risk = p.risk ?? "balanced";
+  const horizon = p.horizon ?? "long";
+  const [scan, rates] = await Promise.all([cached("scan:universe", 60, scanUniverse), getRatesToEur()]);
+  const plan = allocate(amount, risk, horizon, horizon === "short" ? scan.short : scan.long, rates);
+  const euro = (v: number) => `€ ${new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 0 }).format(v)}`;
+  const kindNl = (b: string) => (b === "etf" ? "ETF" : b === "crypto" ? "crypto" : "aandeel");
+  const lines = plan.items.map(
+    (i) => `**${euro(i.amount)}** in **${i.opportunity.row.name} (${i.opportunity.row.symbol})**, ${kindNl(i.bucket)}, ${formatPct(i.weight, 0)}`,
+  );
+  const intro =
+    `Zo zou de app **${euro(amount)}** verdelen (${RISK_PROFILES[risk].label.toLowerCase()} risico, ${horizon === "long" ? "lange termijn" : "korte termijn"}), ` +
+    `alleen over kansen die de historische toets halen:`;
+  const tail = p.risk
+    ? ""
+    : "\n\nWil je het voorzichtiger of avontuurlijker? Zeg bijvoorbeeld *\"verdeel 1000 euro voorzichtig\"*.";
+  return (
+    `${intro}\n\n${lines.length ? bullets(lines) : "Er zijn nu geen kansen die de toets halen."}` +
+    (plan.reserve > 0 ? `\n\nReserve (nu niet beleggen): **${euro(plan.reserve)}**.` : "") +
+    `\n\n${bullets(plan.notes)}\n\nOp de pagina **Budget** zie je het plan met aantallen en kun je per regel op *Gekocht* tikken.${tail}\n\n${DISCLAIMER}`
+  );
+}
+
 const HELP =
   "Ik ben de gratis Beursradar-assistent. Je kunt me bijvoorbeeld vragen:\n\n" +
   bullets([
     "*Denk je dat NVIDIA gaat dalen?*",
     "*Moet ik Bitcoin kopen voor de lange termijn?*",
     "*Wat kan ik nu het beste kopen?* (of: *welke crypto?*)",
+    "*Ik heb 1000 euro, hoe moet ik dat verdelen?*",
     "*Moet ik iets verkopen uit mijn portfolio?*",
     "*Hoe is de stemming op de markt?*",
   ]) +
@@ -321,6 +373,9 @@ export async function answerLocally(
     case "market":
       report("Marktstemming bekijken…");
       return marketAnswer();
+    case "budget":
+      report("Je budget verdelen over de beste kansen…");
+      return budgetAnswer(p);
     case "help":
       return HELP;
     default: {

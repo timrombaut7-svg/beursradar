@@ -20,7 +20,14 @@ function tools(positions: Parameters<typeof buildChatTools>[0]["positions"] = []
 describe("AI-tools", () => {
   it("biedt de verwachte tools met Nederlandse beschrijvingen", () => {
     const names = tools().list.map((t) => t.name);
-    expect(names).toEqual(["search_asset", "get_analysis", "get_opportunities", "get_my_portfolio", "get_market_overview"]);
+    expect(names).toEqual(["search_asset", "get_analysis", "get_opportunities", "plan_budget", "get_my_portfolio", "get_market_overview"]);
+  });
+
+  it("plan_budget verdeelt het hele bedrag", async () => {
+    const res = await tools().call("plan_budget", { amount: 1000, risk: "balanced", horizon: "long" });
+    const total = res.verdeling.reduce((s: number, v: { euro: number }) => s + v.euro, 0) + res.reserve;
+    expect(total).toBe(1000);
+    expect(res.tips.length).toBeGreaterThan(0);
   });
 
   it("get_analysis geeft echte engine-data terug en meldt de voortgang", async () => {

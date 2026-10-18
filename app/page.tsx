@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Brain, Lightbulb, Sparkles } from "lucide-react";
+import { Brain, Lightbulb, Sparkles, Wallet } from "lucide-react";
 import { MarketOverview } from "@/components/dashboard/MarketOverview";
 import { WatchlistPanel } from "@/components/dashboard/WatchlistPanel";
 import { DailyQuiz } from "@/components/quiz/DailyQuiz";
@@ -18,6 +18,7 @@ const QUICK = [
 
 const SHORTCUTS = [
   { href: "/kansen", label: "Kansen", sub: "Wat nu slim is om te kopen", icon: Lightbulb, tone: "from-bull/25 text-bull" },
+  { href: "/budget", label: "Budget", sub: "Hoe verdeel ik mijn geld?", icon: Wallet, tone: "from-accent/25 text-accent" },
   { href: "/assistent", label: "Vraag de AI", sub: "Stijgt of daalt het?", icon: Sparkles, tone: "from-accent/25 text-accent" },
   { href: "/quiz", label: "Quiz", sub: "Elke dag een weetje", icon: Brain, tone: "from-hold/25 text-hold" },
 ];
@@ -49,7 +50,7 @@ export default function DashboardPage() {
             </Link>
           ))}
         </div>
-        <div className="mx-auto mt-6 grid max-w-2xl grid-cols-3 gap-2 text-left">
+        <div className="mx-auto mt-6 grid max-w-2xl grid-cols-2 gap-2 text-left sm:grid-cols-4">
           {SHORTCUTS.map(({ href, label, sub, icon: Icon, tone }) => (
             <Link
               key={href}

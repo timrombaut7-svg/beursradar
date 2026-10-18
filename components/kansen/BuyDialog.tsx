@@ -11,11 +11,11 @@ import { cn } from "@/lib/utils";
 const input = "mt-1 h-9 w-full rounded-lg border border-border bg-panel-2 px-3 font-mono text-sm outline-none focus:border-accent/60";
 
 /** "Gekocht"-knop: legt de positie vast mét het tradeplan van dit moment. */
-export function BuyDialog({ opportunity }: { opportunity: Opportunity }) {
+export function BuyDialog({ opportunity, defaultAmount }: { opportunity: Opportunity; defaultAmount?: number }) {
   const row = opportunity.row;
   const add = usePortfolio((s) => s.add);
   const [open, setOpen] = useState(false);
-  const [amount, setAmount] = useState("1000");
+  const [amount, setAmount] = useState(() => String(defaultAmount ? Math.round(defaultAmount) : 1000));
   const [price, setPrice] = useState(() => String(roundPrice(row.price)));
   const p = Number(price.replace(",", "."));
   const a = Number(amount.replace(",", "."));
