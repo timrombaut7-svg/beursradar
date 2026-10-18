@@ -1,6 +1,7 @@
 "use client";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import type { TrackRecord } from "@/lib/server/tips";
+import type { AllocationPlan, RiskProfile } from "@/lib/engine/allocate";
 import type { Analysis, AssetType, Candle, Evidence, LivePrice, MarketOverview, Opportunity, Quote, SearchResult, SignalRow, Timeframe } from "@/types";
 
 async function getJson<T>(url: string): Promise<T> {
@@ -101,6 +102,19 @@ export function useTrackRecord() {
     queryFn: () => getJson<TrackRecord>("/api/track-record"),
     staleTime: 120_000,
     refetchInterval: 300_000,
+  });
+}
+
+export type BudgetPlan = AllocationPlan & { generatedAt: number; rates: Record<string, number> };
+
+export function useBudgetPlan(amount: number, risk: RiskProfile, horizon: "short" | "long") {
+  return useQuery({
+    queryKey: ["plan", amount, risk, horizon],
+    queryFn: () => getJson<BudgetPlan>(`/api/plan?amount=${amount}&risk=${risk}&horizon=${horizon}`),
+    enabled: amount >= 10,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    placeholderData: keepPreviousData,
   });
 }
 

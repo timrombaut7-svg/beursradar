@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Brain, Briefcase, LayoutDashboard, Lightbulb, Moon, Sparkles, Sun } from "lucide-react";
+import { Activity, Brain, Briefcase, LayoutDashboard, Lightbulb, Moon, Sparkles, Sun, Wallet } from "lucide-react";
 import { SearchBar } from "./SearchBar";
 import { useUi } from "@/lib/store/ui";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 export const NAV = [
   { href: "/", label: "Home", icon: LayoutDashboard },
   { href: "/kansen", label: "Kansen", icon: Lightbulb },
+  { href: "/budget", label: "Budget", icon: Wallet },
   { href: "/quiz", label: "Quiz", icon: Brain },
   { href: "/portfolio", label: "Portfolio", icon: Briefcase },
   { href: "/assistent", label: "AI", icon: Sparkles },
@@ -72,7 +73,7 @@ export function BottomNav() {
       aria-label="Hoofdmenu"
       className="glass glass-solid fixed inset-x-0 bottom-0 z-40 border-t border-border/60 pb-[env(safe-area-inset-bottom)] md:hidden"
     >
-      <div className="mx-auto grid max-w-md grid-cols-5">
+      <div className="mx-auto grid max-w-md grid-cols-6">
         {NAV.map(({ href, label, icon: Icon }) => {
           const active = isActive(pathname, href);
           return (
@@ -80,11 +81,11 @@ export function BottomNav() {
               key={href}
               href={href}
               className={cn(
-                "flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition-colors",
+                "flex flex-col items-center gap-0.5 py-2 text-[10.5px] font-medium transition-colors",
                 active ? "text-bull" : "text-muted",
               )}
             >
-              <span className={cn("grid h-7 w-12 place-items-center rounded-full transition-colors", active && "bg-bull/15")}>
+              <span className={cn("grid h-7 w-11 place-items-center rounded-full transition-colors", active && "bg-bull/15")}>
                 <Icon className="h-[18px] w-[18px]" />
               </span>
               {label}
