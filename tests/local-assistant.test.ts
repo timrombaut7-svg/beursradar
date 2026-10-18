@@ -92,3 +92,18 @@ describe("Antwoorden", () => {
     expect(await ask("hallo")).toContain("Je kunt me bijvoorbeeld vragen");
   });
 });
+
+describe("ETF's", () => {
+  it("herkent bekende ETF's aan naam en ticker", () => {
+    expect(findAsset("Is MSCI World nu een goede koop?")).toEqual({ symbol: "IWDA.AS", type: "stock" });
+    expect(findAsset("wat vind je van vwce")).toEqual({ symbol: "VWCE.DE", type: "stock" });
+    expect(findAsset("Moet ik VWCE kopen?")).toEqual({ symbol: "VWCE.DE", type: "stock" });
+    expect(findAsset("gaat de s&p 500 dalen")).toEqual({ symbol: "SPY", type: "stock" });
+    expect(findAsset("En goud?")).toEqual({ symbol: "GLD", type: "stock" });
+  });
+
+  it("begrijpt een vraag naar de beste ETF's", () => {
+    const p = parseQuestion("Welke ETF raad je aan voor de lange termijn?");
+    expect(p).toMatchObject({ intent: "opportunities", kind: "etf", horizon: "long" });
+  });
+});

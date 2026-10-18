@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 138 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 143 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -134,6 +134,15 @@ browser (`/api/chat`, NDJSON).
 - Kosten: ± $0,05 per vraag. Daglimieten: `CHAT_PER_USER_DAILY` (standaard 20) en `CHAT_GLOBAL_DAILY` (standaard 100),
   geteld in Postgres (`ChatUsage`). Met `CHAT_ACCESS_CODE` is de assistent alleen bruikbaar met een code.
 - Het gesprek staat in de browser; alleen de laatste 12 berichten (als tekst) gaan mee naar de API.
+
+## ETF's
+
+De catalogus bevat 16 bekende ETF's (`ETFS` in `lib/api/universe.ts`): S&P 500 (SPY, VOO, VUSA, CSPX), Nasdaq-100
+(QQQ), wereld (VT, VWRL, VWCE, IWDA), VS breed/klein (VTI, IWM), Dow Jones (DIA), dividend (SCHD), chips (SMH),
+opkomende markten (EMIM) en goud (GLD). ETF's krijgen dezelfde technische, sentiment- en risicoanalyse, maar
+geen bedrijfscijfers (die zeggen niets over een mandje). Voor de lange termijn hoeft een brede ETF in de
+historische toets niet beter te doen dan willekeurig instappen: daar is spreiden zelf de strategie. In de lijst
+met kansen staat per index één ETF; de andere worden als alternatief genoemd.
 
 ## Betrouwbaarheid van de tips
 

@@ -1,8 +1,10 @@
 import type { Analysis, AssetType, Horizon, Opportunity, SignalRow } from "@/types";
-import { UNIVERSE } from "@/lib/api/universe";
+import { UNIVERSE, findInUniverse } from "@/lib/api/universe";
 import { mockMode } from "@/lib/api/http";
 import { getAnalysis } from "./analyze";
 import { estimateHold, explainEasy, longTermPlan, shortTermPlan } from "./explain";
+
+const IGNORED_WHEN_MOCK = new Set(["macro", "nieuws", "fundamentals", "fear & greed"]);
 
 export function toSignalRow(a: Analysis): SignalRow {
   const reasons = Object.values(a.pillars)
@@ -15,6 +17,7 @@ export function toSignalRow(a: Analysis): SignalRow {
     symbol: a.asset.symbol,
     name: a.asset.name,
     type: a.asset.type,
+    etf: Boolean(a.asset.etf),
     currency: a.asset.currency,
     price: a.quote.price,
     changePct24h: a.quote.changePct24h,
@@ -23,9 +26,10 @@ export function toSignalRow(a: Analysis): SignalRow {
     tradePlan: a.tradePlan,
     reasons,
     pricesLive: a.dataSources.koersen !== "mock",
-    // Rente/inflatie zijn zonder FRED-sleutel altijd indicatief; dat is geen reden tot waarschuwen
+    // Alleen bronnen die het advies echt beïnvloeden: mock-macro, -nieuws, -fundamentals en
+    // -Fear & Greed tellen buiten demo-modus niet mee in de score, dus daar valt niets te waarschuwen
     mockSources: Object.entries(a.dataSources)
-      .filter(([k, v]) => v === "mock" && k !== "macro")
+      .filter(([k, v]) => v === "mock" && (mockMode() || !IGNORED_WHEN_MOCK.has(k)))
       .map(([k]) => k),
     evidence: a.evidence,
   };
@@ -80,18 +84,37 @@ export function toOpportunity(a: Analysis, horizon: Horizon): Opportunity {
   return { horizon, row, score: v.score, advice: v.advice, plan, hold, explanation: explainEasy(a, horizon, plan, hold) };
 }
 
+/** Toont per index maar één ETF (de best scorende); de andere worden als alternatief genoemd. */
+export function dedupeByIndex(sorted: Opportunity[]): Opportunity[] {
+  const out: Opportunity[] = [];
+  const byGroup = new Map<string, Opportunity>();
+  for (const o of sorted) {
+    const group = o.row.type === "stock" ? findInUniverse(o.row.symbol, "stock")?.group : undefined;
+    const first = group ? byGroup.get(group) : undefined;
+    if (first) {
+      first.alternatives = [...(first.alternatives ?? []), o.row.symbol];
+      continue;
+    }
+    if (group) byGroup.set(group, o);
+    out.push(o);
+  }
+  return out;
+}
+
 export function buildOpportunities(list: Analysis[], allowMock = mockMode()) {
   const pick = (horizon: Horizon) =>
-    list
-      .filter((a) => qualifies(toSignalRow(a), horizon, allowMock))
-      .map((a) => toOpportunity(a, horizon))
-      .sort((x, y) => y.score - x.score);
+    dedupeByIndex(
+      list
+        .filter((a) => qualifies(toSignalRow(a), horizon, allowMock))
+        .map((a) => toOpportunity(a, horizon))
+        .sort((x, y) => y.score - x.score),
+    );
   // Koopsignalen die de historische toets niet doorstonden (voor transparantie)
   const rejected = (horizon: Horizon) =>
     list
       .map(toSignalRow)
       .filter((r) => isBuySignal(r, horizon, allowMock) && r.evidence[horizon].verdict !== "proven")
-      .map((r) => ({ symbol: r.symbol, type: r.type, name: r.name, evidence: r.evidence[horizon] }));
+      .map((r) => ({ symbol: r.symbol, type: r.type, etf: r.etf, name: r.name, evidence: r.evidence[horizon] }));
   return { short: pick("short"), long: pick("long"), rejected: { short: rejected("short"), long: rejected("long") } };
 }
 

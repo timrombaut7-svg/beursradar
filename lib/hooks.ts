@@ -82,6 +82,7 @@ export function useAiSummary(type: AssetType, symbol: string, enabled: boolean) 
 export interface RejectedSignal {
   symbol: string;
   type: AssetType;
+  etf: boolean;
   name: string;
   evidence: Evidence;
 }

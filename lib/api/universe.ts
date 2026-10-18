@@ -17,7 +17,33 @@ export interface UniverseEntry extends SearchResult {
   maxSupply?: number | null;
   circulating?: number;
   binance?: string;
+  /** Beursgenoteerd indexfonds (mandje met veel aandelen of grondstof) */
+  etf?: boolean;
+  /** Korte uitleg in gewone taal (bij ETF's: wat zit erin) */
+  about?: string;
+  /** ETF's met dezelfde groep volgen (vrijwel) dezelfde index */
+  group?: string;
 }
+
+// Indicatieve startkoers en beweeglijkheid, alleen voor de mock-generator
+const MOCK_ETF: Record<string, { basePrice: number; vol: number; drift: number }> = {
+  SPY: { basePrice: 665, vol: 0.16, drift: 0.09 },
+  VOO: { basePrice: 610, vol: 0.16, drift: 0.09 },
+  QQQ: { basePrice: 600, vol: 0.2, drift: 0.12 },
+  VTI: { basePrice: 330, vol: 0.17, drift: 0.09 },
+  VT: { basePrice: 135, vol: 0.16, drift: 0.08 },
+  DIA: { basePrice: 460, vol: 0.15, drift: 0.07 },
+  IWM: { basePrice: 240, vol: 0.24, drift: 0.06 },
+  SCHD: { basePrice: 28, vol: 0.15, drift: 0.06 },
+  SMH: { basePrice: 300, vol: 0.35, drift: 0.2 },
+  GLD: { basePrice: 370, vol: 0.15, drift: 0.08 },
+  "VWRL.AS": { basePrice: 140, vol: 0.15, drift: 0.08 },
+  "VWCE.DE": { basePrice: 140, vol: 0.15, drift: 0.08 },
+  "IWDA.AS": { basePrice: 110, vol: 0.15, drift: 0.08 },
+  "EMIM.AS": { basePrice: 36, vol: 0.18, drift: 0.05 },
+  "VUSA.AS": { basePrice: 110, vol: 0.16, drift: 0.09 },
+  "CSPX.AS": { basePrice: 640, vol: 0.16, drift: 0.09 },
+};
 
 export const STOCKS: UniverseEntry[] = [
   { symbol: "NVDA", name: "NVIDIA Corporation", type: "stock", exchange: "NASDAQ", basePrice: 185, vol: 0.5, drift: 0.35, sector: "Technology" },
@@ -41,9 +67,34 @@ export const STOCKS: UniverseEntry[] = [
   { symbol: "SHELL.AS", name: "Shell plc", type: "stock", exchange: "AMS", basePrice: 31, vol: 0.24, drift: 0.04, sector: "Energy" },
   { symbol: "INGA.AS", name: "ING Groep N.V.", type: "stock", exchange: "AMS", basePrice: 21, vol: 0.27, drift: 0.1, sector: "Financial Services" },
   { symbol: "PHIA.AS", name: "Koninklijke Philips N.V.", type: "stock", exchange: "AMS", basePrice: 24, vol: 0.33, drift: 0.0, sector: "Healthcare" },
-  { symbol: "SPY", name: "SPDR S&P 500 ETF Trust", type: "stock", exchange: "NYSE", basePrice: 665, vol: 0.16, drift: 0.09, sector: "ETF" },
-  { symbol: "QQQ", name: "Invesco QQQ Trust", type: "stock", exchange: "NASDAQ", basePrice: 600, vol: 0.2, drift: 0.12, sector: "ETF" },
 ];
+
+/** Bekende ETF's (indexfondsen). Technisch gewone beursnoteringen, dus type "stock". */
+export const ETFS: UniverseEntry[] = [
+  { symbol: "SPY", group: "sp500", name: "SPDR S&P 500 ETF Trust", about: "Volgt de S&P 500, de 500 grootste Amerikaanse bedrijven." },
+  { symbol: "VOO", group: "sp500", name: "Vanguard S&P 500 ETF", about: "Volgt de S&P 500 (de 500 grootste Amerikaanse bedrijven), met heel lage kosten." },
+  { symbol: "QQQ", name: "Invesco QQQ Trust", about: "Volgt de Nasdaq-100, de 100 grootste bedrijven op de Nasdaq (vooral tech)." },
+  { symbol: "VTI", name: "Vanguard Total Stock Market ETF", about: "Bijna de hele Amerikaanse aandelenmarkt in één keer, duizenden bedrijven groot en klein." },
+  { symbol: "VT", group: "allworld", name: "Vanguard Total World Stock ETF", about: "Aandelen van over de hele wereld, duizenden bedrijven in tientallen landen." },
+  { symbol: "DIA", name: "SPDR Dow Jones Industrial Average ETF", about: "Volgt de Dow Jones, 30 grote en bekende Amerikaanse bedrijven." },
+  { symbol: "IWM", name: "iShares Russell 2000 ETF", about: "Volgt de Russell 2000, 2.000 kleinere Amerikaanse bedrijven." },
+  { symbol: "SCHD", name: "Schwab U.S. Dividend Equity ETF", about: "Amerikaanse bedrijven die al jaren stabiel dividend uitkeren." },
+  { symbol: "SMH", name: "VanEck Semiconductor ETF", about: "De grootste chipbedrijven, zoals Nvidia, TSMC en ASML." },
+  { symbol: "GLD", name: "SPDR Gold Shares", about: "Volgt de goudprijs; het fonds bezit echt goud in een kluis." },
+  { symbol: "VWRL.AS", group: "allworld", name: "Vanguard FTSE All-World UCITS ETF", exchange: "AMS", about: "Duizenden bedrijven wereldwijd in één fonds; keert dividend uit. Verhandeld op de beurs van Amsterdam." },
+  { symbol: "VWCE.DE", group: "allworld", name: "Vanguard FTSE All-World UCITS ETF (Acc)", exchange: "XETRA", about: "Hetzelfde wereldwijde mandje als VWRL, maar het dividend wordt automatisch herbelegd." },
+  { symbol: "IWDA.AS", name: "iShares Core MSCI World UCITS ETF", exchange: "AMS", about: "Zo'n 1.400 grote bedrijven uit ontwikkelde landen (VS, Europa, Japan…); dividend wordt herbelegd." },
+  { symbol: "EMIM.AS", name: "iShares Core MSCI Emerging Markets IMI UCITS ETF", exchange: "AMS", about: "Bedrijven uit opkomende landen zoals China, India, Taiwan en Brazilië." },
+  { symbol: "VUSA.AS", group: "sp500", name: "Vanguard S&P 500 UCITS ETF", exchange: "AMS", about: "Volgt de S&P 500 (500 grootste Amerikaanse bedrijven). Verhandeld in Amsterdam." },
+  { symbol: "CSPX.AS", group: "sp500", name: "iShares Core S&P 500 UCITS ETF (Acc)", exchange: "AMS", about: "Volgt de S&P 500; het dividend wordt automatisch herbelegd. Verhandeld in Amsterdam." },
+].map((e) => ({
+  type: "stock" as const,
+  exchange: "NYSE",
+  sector: "ETF",
+  etf: true,
+  ...MOCK_ETF[e.symbol],
+  ...e,
+}));
 
 export const CRYPTOS: UniverseEntry[] = [
   { symbol: "BTC", name: "Bitcoin", type: "crypto", coingeckoId: "bitcoin", binance: "BTCUSDT", basePrice: 112000, vol: 0.5, drift: 0.3, inflation: 0.0084, maxSupply: 21_000_000, circulating: 19_930_000 },
@@ -62,7 +113,11 @@ export const CRYPTOS: UniverseEntry[] = [
   { symbol: "TON", name: "Toncoin", type: "crypto", coingeckoId: "the-open-network", binance: "TONUSDT", basePrice: 2.8, vol: 0.8, drift: -0.1, inflation: 0.006, maxSupply: null, circulating: 2_560_000_000 },
 ];
 
-export const UNIVERSE: UniverseEntry[] = [...STOCKS, ...CRYPTOS];
+export const UNIVERSE: UniverseEntry[] = [...STOCKS, ...ETFS, ...CRYPTOS];
+
+export function isEtf(symbol: string): boolean {
+  return Boolean(findInUniverse(symbol, "stock")?.etf);
+}
 
 export function findInUniverse(symbol: string, type?: AssetType): UniverseEntry | undefined {
   const s = symbol.toUpperCase();

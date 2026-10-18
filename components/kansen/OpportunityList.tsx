@@ -21,22 +21,29 @@ const HORIZONS: { key: Horizon; label: string; sub: string }[] = [
   { key: "short", label: "Korte termijn", sub: "weken" },
   { key: "long", label: "Lange termijn", sub: "maanden tot jaren" },
 ];
-const FILTERS: { key: "all" | AssetType; label: string }[] = [
+type Filter = "all" | "stock" | "etf" | "crypto";
+const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "Alles" },
   { key: "stock", label: "Aandelen" },
+  { key: "etf", label: "ETF's" },
   { key: "crypto", label: "Crypto" },
 ];
+const FILTER_NL: Record<Exclude<Filter, "all">, string> = { stock: "geen enkel aandeel", etf: "geen enkele ETF", crypto: "geen enkele crypto" };
+
+/** Hoort deze asset bij het gekozen filter? ETF's tellen niet als losse aandelen. */
+const matches = (filter: Filter, a: { type: AssetType; etf: boolean }) =>
+  filter === "all" || (filter === "etf" ? a.etf : filter === "stock" ? a.type === "stock" && !a.etf : a.type === filter);
 
 export function OpportunityList() {
   const { data, isLoading, isError, error, refetch, isFetching } = useScan();
   const { data: live } = useLivePrices();
   const now = useNow(5000);
   const [horizon, setHorizon] = useState<Horizon>("short");
-  const [filter, setFilter] = useState<"all" | AssetType>("all");
+  const [filter, setFilter] = useState<Filter>("all");
 
   const all = data ? (horizon === "short" ? data.short : data.long) : [];
-  const list = all.filter((o) => filter === "all" || o.row.type === filter);
-  const rejected = (data?.rejected[horizon] ?? []).filter((r) => filter === "all" || r.type === filter);
+  const list = all.filter((o) => matches(filter, o.row));
+  const rejected = (data?.rejected[horizon] ?? []).filter((r) => matches(filter, r));
   const count = (h: Horizon) => (data ? (h === "short" ? data.short : data.long).length : 0);
 
   return (
@@ -47,12 +54,12 @@ export function OpportunityList() {
         subtitle={
           data ? (
             <span>
-              <LiveDot active={Boolean(live?.prices.length)} /> {data.scanned} aandelen en crypto geanalyseerd · signalen{" "}
+              <LiveDot active={Boolean(live?.prices.length)} /> {data.scanned} aandelen, ETF&apos;s en crypto geanalyseerd · signalen{" "}
               {secondsAgo(data.generatedAt, now)}
               {live?.prices.length ? ` · koersen ${secondsAgo(live.generatedAt, now)}` : ""}
             </span>
           ) : (
-            "Alle aandelen en crypto worden geanalyseerd…"
+            "Alle aandelen, ETF's en crypto worden geanalyseerd…"
           )
         }
         action={
@@ -106,11 +113,9 @@ export function OpportunityList() {
       {isError && <p className="p-4 text-sm text-bear">Scan mislukt: {(error as Error).message}</p>}
       {data && list.length === 0 && (
         <p className="p-4 text-sm text-muted">
-          {filter === "crypto"
-            ? `Op dit moment geeft geen enkele crypto een koopsignaal voor de ${horizon === "short" ? "korte" : "lange"} termijn.`
-            : filter === "stock"
-              ? `Op dit moment geeft geen enkel aandeel een koopsignaal voor de ${horizon === "short" ? "korte" : "lange"} termijn.`
-              : "Op dit moment is er niets met een koopsignaal dat de historische toets doorstaat."}{" "}
+          {filter !== "all"
+            ? `Op dit moment geeft ${FILTER_NL[filter]} een koopsignaal voor de ${horizon === "short" ? "korte" : "lange"} termijn dat de historische toets doorstaat.`
+            : "Op dit moment is er niets met een koopsignaal dat de historische toets doorstaat."}{" "}
           {horizon === "short" ? "Kijk ook bij Lange termijn." : "Kijk ook bij Korte termijn."} Liever geen tip dan een slechte tip.
         </p>
       )}
@@ -157,10 +162,13 @@ function OpportunityCard({ o, lp }: { o: Opportunity; lp: LivePrice | undefined 
               {r.symbol}
             </Link>
             <Badge tone="bull">{meta.nl}</Badge>
-            <Badge tone={r.type === "crypto" ? "hold" : "accent"}>{r.type === "crypto" ? "crypto" : "aandeel"}</Badge>
+            <Badge tone={r.type === "crypto" ? "hold" : r.etf ? "neutral" : "accent"}>{r.type === "crypto" ? "crypto" : r.etf ? "ETF" : "aandeel"}</Badge>
             {r.mockSources.length > 0 && <Badge tone="hold" title={`Niet live: ${r.mockSources.join(", ")}`}>{r.mockSources.join(", ")}: mock</Badge>}
           </div>
           <p className="truncate text-xs text-muted">{r.name}</p>
+          {o.alternatives?.length ? (
+            <p className="text-[11px] text-muted">Zelfde index, ook goed: {o.alternatives.join(" · ")}</p>
+          ) : null}
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm">
             <LivePriceValue price={lp?.price ?? r.price} currency={r.currency} changePct={lp?.changePct ?? r.changePct24h} />
             {lp && <MarketStateTag state={lp.marketState} />}

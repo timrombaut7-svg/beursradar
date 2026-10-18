@@ -10,7 +10,7 @@ const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono-jb" });
 export const metadata: Metadata = {
   title: { default: "Beursradar — AI Trading & Analyse", template: "%s · Beursradar" },
   description:
-    "Multi-asset analyseplatform voor aandelen en crypto: 4-pijler analyse, AI-tradingsignalen, executieplannen en backtesting.",
+    "Multi-asset analyseplatform voor aandelen, ETF's en crypto: 4-pijler analyse, AI-tradingsignalen, executieplannen en backtesting.",
 };
 
 export const viewport: Viewport = { themeColor: "#0b0e14", width: "device-width", initialScale: 1, viewportFit: "cover" };

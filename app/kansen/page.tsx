@@ -15,7 +15,7 @@ export default function KansenPage() {
         title="Kansen"
         subtitle={
           <>
-            Aandelen en crypto die nu interessant zijn om te kopen, voor de korte termijn (weken) of de lange termijn
+            Aandelen, ETF&apos;s en crypto die nu interessant zijn om te kopen, voor de korte termijn (weken) of de lange termijn
             (maanden tot jaren), met uitleg in gewone taal. Elke tip is getest op de koersen van de afgelopen jaren. Rechts zie je wanneer je moet verkopen en hoe eerdere tips uitpakten. Dit is een algoritme,
             geen financieel advies.
           </>

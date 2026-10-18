@@ -17,7 +17,9 @@ export function AssetHeader({ a }: { a: Analysis }) {
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-mono text-2xl font-bold tracking-tight sm:text-3xl">{a.asset.symbol}</h1>
-          <Badge tone={a.asset.type === "crypto" ? "hold" : "accent"}>{a.asset.type === "crypto" ? "Crypto" : "Aandeel"}</Badge>
+          <Badge tone={a.asset.type === "crypto" ? "hold" : a.asset.etf ? "neutral" : "accent"}>
+            {a.asset.type === "crypto" ? "Crypto" : a.asset.etf ? "ETF" : "Aandeel"}
+          </Badge>
           {a.asset.exchange && <Badge>{a.asset.exchange}</Badge>}
           <button
             onClick={() => toggle({ symbol: a.asset.symbol, name: a.asset.name, type: a.asset.type })}
@@ -34,6 +36,7 @@ export function AssetHeader({ a }: { a: Analysis }) {
           </Link>
         </div>
         <p className="truncate text-sm text-muted">{a.asset.name}</p>
+        {a.asset.etf && a.asset.about && <p className="mt-0.5 text-xs text-muted">{a.asset.about}</p>}
       </div>
       <div className="flex flex-wrap items-end gap-6">
         <div className="text-right">

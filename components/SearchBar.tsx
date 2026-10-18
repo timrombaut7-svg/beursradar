@@ -77,7 +77,7 @@ export function SearchBar({ autoFocus = false, large = false }: { autoFocus?: bo
             else if (e.key === "Enter" && results[active]) go(results[active]);
             else if (e.key === "Escape") setOpen(false);
           }}
-          placeholder="Zoek aandeel of crypto… (NVDA, ASML, BTC, SOL)"
+          placeholder="Zoek aandeel, ETF of crypto… (NVDA, VWRL, BTC)"
           className="h-full w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-muted"
           aria-label="Zoek asset"
           role="combobox"
