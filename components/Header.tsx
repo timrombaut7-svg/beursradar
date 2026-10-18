@@ -21,6 +21,7 @@ export function isActive(pathname: string, href: string): boolean {
 export function Header() {
   const pathname = usePathname();
   const { theme, setTheme } = useUi();
+  if (pathname === "/login") return null;
   return (
     <header className="glass sticky top-0 z-40 border-b border-border/60">
       <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-3 sm:px-6">
@@ -65,6 +66,7 @@ export function Header() {
 /** Menubalk onderaan op de telefoon, zoals in een echte app. */
 export function BottomNav() {
   const pathname = usePathname();
+  if (pathname === "/login") return null;
   return (
     <nav
       aria-label="Hoofdmenu"

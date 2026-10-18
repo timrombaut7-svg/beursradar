@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 134 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 138 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -190,3 +190,6 @@ npm run db:studio        # data bekijken in Prisma Studio
    **Neon (Postgres)** → koppel aan het project en klik daarna op **Redeploy**.
    Vercel zet `DATABASE_URL` automatisch; de build (`vercel-build`) past dan de migraties toe.
 3. Elke push naar `main` wordt automatisch online gezet.
+4. Privé maken: **Settings → Environment Variables** → `APP_PASSWORD` = een sterk wachtwoord (Production) →
+   **Redeploy**. Daarna toont elke pagina eerst een inlogscherm en geven alle API's `401` zonder sessie
+   (`proxy.ts`). Je blijft per toestel een jaar ingelogd; een nieuw wachtwoord logt alle toestellen uit.
