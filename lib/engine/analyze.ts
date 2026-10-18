@@ -85,6 +85,8 @@ export async function analyzeAsset(rawSymbol: string, type: AssetType): Promise<
     exchange: entry?.exchange ?? (type === "crypto" ? "Crypto" : undefined),
     coingeckoId: entry?.coingeckoId,
     currency: quote.currency,
+    etf: entry?.etf ?? false,
+    about: entry?.about,
   };
 
   // --- Technisch ---------------------------------------------------------
@@ -111,7 +113,8 @@ export async function analyzeAsset(rawSymbol: string, type: AssetType): Promise<
     technical: buildPillar("technical", technicalFactors(series, candles.length - 1, technical)),
     fundamental: buildPillar(
       "fundamental",
-      usable(fundamentals.source) ? fundamentalFactors(fundamentals, technical.price, mockMode()) : [],
+      // Bedrijfscijfers (winstgroei, schulden, analisten) zeggen niets over een mandje van honderden bedrijven
+      usable(fundamentals.source) && !asset.etf ? fundamentalFactors(fundamentals, technical.price, mockMode()) : [],
     ),
     sentiment: buildPillar("sentiment", sentiment),
     risk: buildPillar("risk", riskFactors(risk, type)),
@@ -139,7 +142,7 @@ export async function analyzeAsset(rawSymbol: string, type: AssetType): Promise<
   const shape = planShape(tradePlan, technical.atr, technical.price);
   const evidence = {
     short: shortEvidence(histCandles, histSeries, shape, barsPerYear),
-    long: longEvidence(histCandles, histSeries, barsPerYear),
+    long: longEvidence(histCandles, histSeries, barsPerYear, { requireEdge: !asset.etf }),
   };
 
   return {

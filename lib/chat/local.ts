@@ -2,7 +2,7 @@ import type { Analysis, AssetType, Advice } from "@/types";
 import { UNIVERSE, findInUniverse } from "@/lib/api/universe";
 import { cached } from "@/lib/api/http";
 import { getAnalysis } from "@/lib/engine/analyze";
-import { scanUniverse, toOpportunity } from "@/lib/engine/signals";
+import { qualifies, scanUniverse, toOpportunity, toSignalRow } from "@/lib/engine/signals";
 import { sellAdvice } from "@/lib/engine/sellAdvice";
 import { getCryptoFearGreed, getStockFearGreed } from "@/lib/api/sentiment";
 import { getStockCandles } from "@/lib/api/stocks";
@@ -21,7 +21,7 @@ export interface ParsedQuestion {
   intent: Intent;
   asset: { symbol: string; type: AssetType } | null;
   horizon: "short" | "long" | null;
-  kind: AssetType | null;
+  kind: AssetType | "etf" | null;
 }
 
 // Extra namen waarmee mensen naar een asset verwijzen (kleine letters)
@@ -47,8 +47,21 @@ const ALIASES: Record<string, string[]> = {
   "stock:SHELL.AS": ["shell"],
   "stock:INGA.AS": ["ing groep", "ing bank"],
   "stock:PHIA.AS": ["philips"],
-  "stock:SPY": ["s&p 500", "s&p", "sp500"],
-  "stock:QQQ": ["nasdaq"],
+  "stock:SPY": ["s&p 500", "s&p", "sp500", "sp 500"],
+  "stock:QQQ": ["nasdaq", "nasdaq 100", "nasdaq-100"],
+  "stock:VTI": ["total stock market"],
+  "stock:VT": ["total world"],
+  "stock:DIA": ["dow jones"],
+  "stock:IWM": ["russell 2000", "russell"],
+  "stock:SCHD": ["schd"],
+  "stock:SMH": ["chip etf", "halfgeleider etf", "semiconductor etf"],
+  "stock:GLD": ["goud", "gold"],
+  "stock:VWRL.AS": ["vwrl", "all-world", "all world", "ftse all world"],
+  "stock:VWCE.DE": ["vwce"],
+  "stock:IWDA.AS": ["iwda", "msci world"],
+  "stock:EMIM.AS": ["emim", "emerging markets", "opkomende markten"],
+  "stock:VUSA.AS": ["vusa"],
+  "stock:CSPX.AS": ["cspx"],
   "crypto:BTC": ["bitcoin", "btc"],
   "crypto:ETH": ["ethereum", "ether", "eth"],
   "crypto:SOL": ["solana"],
@@ -86,7 +99,7 @@ export function findAsset(text: string): { symbol: string; type: AssetType } | n
   }
   // Tickers alleen in HOOFDLETTERS, zodat gewone woorden ("link", "ton", "ing") niet matchen
   for (const u of UNIVERSE) {
-    const base = u.symbol.replace(/\.AS$/, "");
+    const base = u.symbol.replace(/\.(AS|DE)$/, "");
     if (base.length < 2) continue;
     const m = new RegExp(`(^|[^A-Za-z0-9])${escapeRe(base)}([^A-Za-z0-9]|$)`).exec(text);
     if (m) consider(u.symbol, u.type, m.index);
@@ -118,7 +131,13 @@ export function parseQuestion(text: string, history: string[] = []): ParsedQuest
   }
 
   const horizon = has(t, ["lange termijn", "lang houden", "jaren", "jaar", "maanden", "langer"]) ? "long" : has(t, ["korte termijn", "weken", "week", "snel", "deze maand"]) ? "short" : null;
-  const kind: AssetType | null = has(t, ["crypto", "munt", "coin"]) ? "crypto" : has(t, ["aandel", "aandeel", "bedrijf"]) ? "stock" : null;
+  const kind: ParsedQuestion["kind"] = has(t, ["etf", "indexfonds", "index fonds", "tracker"])
+    ? "etf"
+    : has(t, ["crypto", "munt", "coin"])
+      ? "crypto"
+      : has(t, ["aandel", "aandeel", "bedrijf"])
+        ? "stock"
+        : null;
 
   let intent: Intent;
   if (has(t, ["mijn portfolio", "mijn aandelen", "mijn posities", "mijn crypto", "wat ik heb", "mijn beleggingen", "portefeuille"])) intent = "portfolio";
@@ -159,7 +178,8 @@ function bullets(lines: string[]) {
 function assetAnswer(a: Analysis, p: ParsedQuestion, positions: ChatPosition[]): string {
   const cur = a.asset.currency;
   const name = a.asset.name;
-  const horizon = p.horizon ?? "short";
+  // Een ETF koop je meestal voor jaren: zonder termijn in de vraag kijken we dan naar de lange termijn
+  const horizon = p.horizon ?? (a.asset.etf ? "long" : "short");
   const opp = toOpportunity(a, horizon);
   const verdict = horizon === "short" ? a.shortTerm : a.longTerm;
   const termNl = horizon === "short" ? "de komende weken" : "de lange termijn (maanden tot jaren)";
@@ -191,9 +211,12 @@ function assetAnswer(a: Analysis, p: ParsedQuestion, positions: ChatPosition[]):
   const proven = evidence.verdict === "proven";
   if (p.intent === "buy" || p.intent === "overview" || p.intent === "up" || p.intent === "down") {
     if (buyNow && (horizon === "long" || a.tradePlan.direction === "long") && !proven) {
+      const other = horizon === "short" ? "long" : "short";
+      const otherOk = qualifies(toSignalRow(a), other);
       out.push(
         `**Toch niet aangeraden:** het signaal staat op kopen, maar het haalde de historische toets niet: ${rejectionReason(evidence)}. ` +
-          `Daarom raadt de app het nu niet aan.`,
+          `Daarom raadt de app het voor ${termNl} niet aan.` +
+          (otherOk ? ` Voor de ${other === "long" ? "lange" : "korte"} termijn haalt het de toets wel; vraag daar gerust naar.` : ""),
       );
     } else if (buyNow && (horizon === "long" || a.tradePlan.direction === "long")) {
       out.push(`**Bewijs:** ${evidenceSentence(evidence, horizon)}`);
@@ -219,8 +242,10 @@ function assetAnswer(a: Analysis, p: ParsedQuestion, positions: ChatPosition[]):
 async function opportunitiesAnswer(p: ParsedQuestion): Promise<string> {
   const scan = await cached("scan:universe", 60, scanUniverse);
   const horizon = p.horizon ?? "short";
-  const list = (horizon === "short" ? scan.short : scan.long).filter((o) => !p.kind || o.row.type === p.kind).slice(0, 5);
-  const kindNl = p.kind === "crypto" ? "crypto" : p.kind === "stock" ? "aandelen" : "aandelen en crypto";
+  const list = (horizon === "short" ? scan.short : scan.long)
+    .filter((o) => !p.kind || (p.kind === "etf" ? o.row.etf : p.kind === "stock" ? o.row.type === "stock" && !o.row.etf : o.row.type === p.kind))
+    .slice(0, 5);
+  const kindNl = p.kind === "crypto" ? "crypto" : p.kind === "stock" ? "aandelen" : p.kind === "etf" ? "ETF's" : "aandelen, ETF's en crypto";
   const termNl = horizon === "short" ? "de korte termijn (weken)" : "de lange termijn (maanden tot jaren)";
   if (!list.length) {
     return `Op dit moment geeft geen ${kindNl} een koopsignaal voor ${termNl} dat ook de historische toets doorstaat. Liever geen tip dan een slechte tip. ${horizon === "short" ? "Vraag eens naar de lange termijn." : "Vraag eens naar de korte termijn."}\n\n${DISCLAIMER}`;

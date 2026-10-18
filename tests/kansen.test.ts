@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { sellAdvice } from "@/lib/engine/sellAdvice";
 import { qualifies, mapLimit, getSignals, buildOpportunities } from "@/lib/engine/signals";
 import { analyzeAsset } from "@/lib/engine/analyze";
-import type { Evidence, SignalRow } from "@/types";
+import type { Evidence, Opportunity, SignalRow } from "@/types";
 
 beforeAll(() => {
   process.env.USE_MOCK_DATA = "1";
@@ -67,6 +67,7 @@ const row = (over: Partial<SignalRow>): SignalRow => ({
   symbol: "X",
   name: "X",
   type: "stock",
+  etf: false,
   currency: "USD",
   price: 10,
   changePct24h: 0,
@@ -161,5 +162,41 @@ describe("Verkoopadvies lange termijn", () => {
     expect(sellAdvice(p, 150, { advice: "BUY" }).reason).toMatch(/Lange termijn/);
     expect(sellAdvice(p, 74, { advice: "BUY" }).action).toBe("SELL");
     expect(sellAdvice(p, 120, { advice: "SELL" }).action).toBe("SELL");
+  });
+});
+
+describe("ETF's in de analyse", () => {
+  it("heeft voor elke ETF een uitleg en unieke tickers in de catalogus", async () => {
+    const { ETFS, UNIVERSE, isEtf } = await import("@/lib/api/universe");
+    expect(ETFS.length).toBeGreaterThanOrEqual(15);
+    for (const e of ETFS) {
+      expect(e.etf, e.symbol).toBe(true);
+      expect(e.about?.length, e.symbol).toBeGreaterThan(20);
+      expect(isEtf(e.symbol)).toBe(true);
+    }
+    expect(isEtf("AAPL")).toBe(false);
+    expect(new Set(UNIVERSE.map((u) => `${u.type}:${u.symbol}`)).size).toBe(UNIVERSE.length);
+  });
+
+  it("beoordeelt een ETF niet op bedrijfscijfers en legt uit wat erin zit", async () => {
+    const a = await analyzeAsset("IWDA.AS", "stock");
+    expect(a.asset.etf).toBe(true);
+    expect(a.pillars.fundamental.factors).toHaveLength(0);
+    const { toOpportunity } = await import("@/lib/engine/signals");
+    const o = toOpportunity(a, "long");
+    expect(o.row.etf).toBe(true);
+    expect(o.explanation.why[0]).toMatch(/^Dit is een ETF: zo'n 1\.400 grote bedrijven/);
+    expect(o.explanation.hold).toMatch(/vast bedrag/);
+  });
+});
+
+describe("ETF's met dezelfde index", () => {
+  it("toont per index één kans en noemt de andere als alternatief", async () => {
+    const { dedupeByIndex } = await import("@/lib/engine/signals");
+    const opp = (symbol: string, score: number) => ({ row: row({ symbol, etf: true }), score }) as unknown as Opportunity;
+    const out = dedupeByIndex([opp("VUSA.AS", 60), opp("IWDA.AS", 58), opp("SPY", 52), opp("VOO", 50), opp("AAPL", 40)]);
+    expect(out.map((o) => o.row.symbol)).toEqual(["VUSA.AS", "IWDA.AS", "AAPL"]);
+    expect(out[0].alternatives).toEqual(["SPY", "VOO"]);
+    expect(out[1].alternatives).toBeUndefined();
   });
 });

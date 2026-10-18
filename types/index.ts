@@ -30,6 +30,10 @@ export interface SearchResult {
 
 export interface AssetMeta extends SearchResult {
   currency: string;
+  /** Beursgenoteerd indexfonds */
+  etf?: boolean;
+  /** Korte uitleg in gewone taal (bij ETF's: wat zit erin) */
+  about?: string;
 }
 
 export interface Quote {
@@ -324,6 +328,8 @@ export interface SignalRow {
   symbol: string;
   name: string;
   type: AssetType;
+  /** Beursgenoteerd indexfonds (mandje met veel aandelen of grondstof) */
+  etf: boolean;
   currency: string;
   price: number;
   changePct24h: number;
@@ -401,4 +407,6 @@ export interface Opportunity {
   };
   hold: HoldEstimate;
   explanation: SignalExplanation;
+  /** Andere ETF's die dezelfde index volgen (alleen de beste wordt als kans getoond) */
+  alternatives?: string[];
 }

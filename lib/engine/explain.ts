@@ -169,6 +169,8 @@ export function shortTermPlan(a: Analysis): Opportunity["plan"] {
   return { entryLow: p.entryLow, entryHigh: p.entryHigh, stopLoss: p.stopLoss, target1: p.target1, target2: p.target2, riskPct: p.riskPct };
 }
 
+const lowerFirst = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+
 export function explainEasy(a: Analysis, horizon: Horizon, plan: Opportunity["plan"], hold: HoldEstimate): SignalExplanation {
   const cur = a.asset.currency;
   const name = a.asset.name;
@@ -179,7 +181,10 @@ export function explainEasy(a: Analysis, horizon: Horizon, plan: Opportunity["pl
       ? `${name} lijkt nu ${strong ? "een sterke" : "een goede"} koop voor de komende weken.`
       : `${name} lijkt ${strong ? "een sterke" : "een goede"} belegging om langere tijd vast te houden.`;
 
-  const { why, risks } = reasons(a, horizon);
+  const r = reasons(a, horizon);
+  // Bij een ETF eerst uitleggen wat je eigenlijk koopt: spreiding is zelf een reden
+  const why = a.asset.etf && a.asset.about ? [`Dit is een ETF: ${lowerFirst(a.asset.about)} Zo spreid je je geld in één keer over veel beleggingen.`, ...r.why.slice(0, 3)] : r.why;
+  const risks = r.risks;
   const mid = (plan.entryLow + plan.entryHigh) / 2;
   const plan_ =
     horizon === "short" && plan.target1 && plan.target2
@@ -194,7 +199,9 @@ export function explainEasy(a: Analysis, horizon: Horizon, plan: Opportunity["pl
   const hold_ =
     horizon === "short"
       ? `Houd het ${hold.label} vast. Verkoop eerder als de app "Verkopen" zegt, en neem winst als het eerste doel gehaald is.`
-      : `Houd het minstens een paar maanden vast, mogelijk jaren, zolang de app niet "Verkopen" zegt. Koersen kunnen onderweg flink schommelen.`;
+      : a.asset.etf
+        ? `Een brede ETF houd je meestal jaren vast. Veel beleggers kopen er elke maand een vast bedrag bij, dan maakt het precies goede moment minder uit.`
+        : `Houd het minstens een paar maanden vast, mogelijk jaren, zolang de app niet "Verkopen" zegt. Koersen kunnen onderweg flink schommelen.`;
 
   return { headline, why, risks, plan: plan_, hold: hold_ };
 }

@@ -43,7 +43,15 @@ export function planShape(plan: { entryLow: number; entryHigh: number; stopLoss:
   };
 }
 
-function summarize(horizon: Horizon, returns: number[], held: number[], baseline: number[], candles: Candle[], barsPerYear: number): Evidence {
+function summarize(
+  horizon: Horizon,
+  returns: number[],
+  held: number[],
+  baseline: number[],
+  candles: Candle[],
+  barsPerYear: number,
+  requireEdge = true,
+): Evidence {
   const baselineReturn = baseline.length ? baseline.reduce((s, r) => s + r, 0) / baseline.length : 0;
   const samples = returns.length;
   const wins = returns.filter((r) => r > 0).length;
@@ -53,7 +61,8 @@ function summarize(horizon: Horizon, returns: number[], held: number[], baseline
   let verdict: Evidence["verdict"] = "insufficient";
   if (samples >= MIN_SAMPLES[horizon]) {
     // Het signaal moet winst opleveren én beter doen dan op een willekeurige dag instappen
-    const edge = avgReturn > baselineReturn;
+    // (behalve bij brede ETF's voor de lange termijn: daar is spreiden zelf de strategie)
+    const edge = !requireEdge || avgReturn > baselineReturn;
     const proven = edge && (horizon === "short" ? avgReturn > 0.002 && winRate >= 0.45 : avgReturn > 0.01 && winRate >= 0.5);
     verdict = proven ? "proven" : "weak";
   }
@@ -137,7 +146,7 @@ function longTrade(candles: Candle[], closes: number[], i: number, hold: number,
 }
 
 /** Lange termijn: hoe verging het een koper ± 3 maanden na hetzelfde soort signaal? */
-export function longEvidence(candles: Candle[], s: IndicatorSeries, barsPerYear: number): Evidence {
+export function longEvidence(candles: Candle[], s: IndicatorSeries, barsPerYear: number, opts: { requireEdge?: boolean } = {}): Evidence {
   const n = candles.length;
   const hold = Math.round(barsPerYear / 4);
   const returns: number[] = [];
@@ -155,5 +164,5 @@ export function longEvidence(candles: Candle[], s: IndicatorSeries, barsPerYear:
     held.push(t.exitBar - i);
     i = t.exitBar + 1;
   }
-  return summarize("long", returns, held, baseline, candles, barsPerYear);
+  return summarize("long", returns, held, baseline, candles, barsPerYear, opts.requireEdge ?? true);
 }
