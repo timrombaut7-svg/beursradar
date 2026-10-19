@@ -16,7 +16,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ type: string; 
   try {
     const analysis = await getAnalysis(sym, type);
     return NextResponse.json(analysis, {
-      headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
+      headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=30" },
     });
   } catch (err) {
     const status = err instanceof AssetNotFoundError ? 404 : 500;

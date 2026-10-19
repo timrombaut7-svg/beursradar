@@ -72,7 +72,8 @@ describe("Antwoorden", () => {
 
   it("geeft bij een koopvraag het plan of legt uit waarom nu niet", async () => {
     const text = await ask("Moet ik Bitcoin kopen voor de lange termijn?");
-    expect(text).toMatch(/Als je wilt kopen|Nu kopen\?/);
+    // Drie geldige uitkomsten: een plan, "nu niet", of een koopsignaal dat de historische toets niet haalt
+    expect(text).toMatch(/Als je wilt kopen|Nu kopen\?|Toch niet aangeraden/);
   });
 
   it("geeft verkoopadvies voor een eigen positie", async () => {

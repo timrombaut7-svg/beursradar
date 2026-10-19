@@ -9,5 +9,5 @@ export const maxDuration = 60;
 export async function GET(req: NextRequest) {
   const assets = parseAssetList(req.nextUrl.searchParams.get("assets"), 30);
   const signals = await getSignals(assets);
-  return NextResponse.json({ signals }, { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" } });
+  return NextResponse.json({ signals }, { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=30" } });
 }

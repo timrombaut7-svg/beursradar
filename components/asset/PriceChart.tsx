@@ -39,6 +39,8 @@ export function PriceChart({
   const { data, isLoading, isError, error } = useCandles(type, symbol, timeframe);
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  // Zoom/scroll bewaren als de grafiek elke minuut met nieuwe koersen wordt herbouwd
+  const viewRef = useRef<{ key: string; from: number; to: number; bars: number } | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -126,15 +128,23 @@ export function PriceChart({
     panes[1]?.setStretchFactor(0.9);
     panes[2]?.setStretchFactor(0.9);
 
-    if (data.visibleBars && candles.length > data.visibleBars) {
+    const viewKey = `${type}:${symbol}:${timeframe}`;
+    const saved = viewRef.current?.key === viewKey ? viewRef.current : null;
+    if (saved) {
+      // Stond je bij de nieuwste koers, schuif dan mee met nieuwe candles
+      const shift = saved.to >= saved.bars - 1 ? candles.length - saved.bars : 0;
+      chart.timeScale().setVisibleLogicalRange({ from: saved.from + shift, to: saved.to + shift });
+    } else if (data.visibleBars && candles.length > data.visibleBars) {
       chart.timeScale().setVisibleLogicalRange({ from: candles.length - data.visibleBars, to: candles.length + 3 });
     } else chart.timeScale().fitContent();
 
     return () => {
+      const range = chart.timeScale().getVisibleLogicalRange();
+      if (range) viewRef.current = { key: viewKey, from: range.from, to: range.to, bars: candles.length };
       chart.remove();
       chartRef.current = null;
     };
-  }, [data, overlays, technical, timeframe, theme]);
+  }, [data, overlays, technical, timeframe, theme, type, symbol]);
 
   return (
     <Card className="overflow-hidden">

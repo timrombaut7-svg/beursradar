@@ -79,7 +79,7 @@ interface IntervalSpec {
 }
 
 export async function getStockCandles(symbol: string, spec: IntervalSpec): Promise<{ candles: Candle[]; live: boolean }> {
-  return cached(`yf:candles:${symbol}:${spec.yahoo}:${spec.bars}`, spec.seconds >= 86400 ? 900 : 120, () =>
+  return cached(`yf:candles:${symbol}:${spec.yahoo}:${spec.bars}`, spec.seconds >= 86400 ? 900 : 60, () =>
     withFallback<{ candles: Candle[]; live: boolean }>(
       [
         async () => {

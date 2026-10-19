@@ -21,7 +21,7 @@ export async function GET() {
   try {
     // Elke minuut opnieuw berekend met de nieuwste live koersen
     const result = await cached("scan:universe", 60, scanAndRecord);
-    return NextResponse.json(result, { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" } });
+    return NextResponse.json(result, { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=30" } });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }

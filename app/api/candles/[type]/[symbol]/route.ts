@@ -2,6 +2,8 @@ import { AssetNotFoundError, assertResolvable } from "@/lib/api/guard";
 import { NextResponse, type NextRequest } from "next/server";
 import { getCandles } from "@/lib/engine/analyze";
 import { computeSeries } from "@/lib/engine/technical";
+import { applyLivePrice } from "@/lib/engine/live";
+import { getLivePrice } from "@/lib/api/livePrices";
 import { TIMEFRAMES, isTimeframe } from "@/lib/timeframes";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +19,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ type: strin
 
   const spec = TIMEFRAMES[tf];
   try {
-    const { candles, live } = await getCandles(sym, type, spec);
+    const { candles: raw, live } = await getCandles(sym, type, spec);
+    // Dagcandles: de laatste candle volgt de live koers, zodat de grafiek elke minuut bijwerkt
+    const lp = spec.seconds === 86400 ? await getLivePrice(sym, type).catch(() => null) : null;
+    const candles = lp ? applyLivePrice(raw, lp) : raw;
     assertResolvable(sym, type, live);
     const s = computeSeries(candles);
     return NextResponse.json(
@@ -38,7 +43,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ type: strin
           macdHist: s.macdHist,
         },
       },
-      { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=600" } },
+      { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=30" } },
     );
   } catch (err) {
     const status = err instanceof AssetNotFoundError ? 404 : 500;

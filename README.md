@@ -144,6 +144,17 @@ geen bedrijfscijfers (die zeggen niets over een mandje). Voor de lange termijn h
 historische toets niet beter te doen dan willekeurig instappen: daar is spreiden zelf de strategie. In de lijst
 met kansen staat per index één ETF; de andere worden als alternatief genoemd.
 
+## Verversen
+
+| Wat | Hoe vaak |
+| --- | --- |
+| Live koersen | elke 15 s (server-cache 15 s) |
+| Analyses, signalen, kansen, budgetplan, scorebord, marktoverzicht, grafiek | elke minuut; de laatste dagcandle volgt de live koers |
+| Nieuws, Fear & Greed | elke 5 minuten (bronnen publiceren niet vaker) |
+| Bedrijfscijfers (30 min), rente/inflatie (6 u) | veranderen per kwartaal of maand |
+
+CDN-cache maximaal 30 s + 30 s stale. Bij terugkeren naar de app wordt verouderde data meteen opnieuw opgehaald.
+
 ## Budget verdelen
 
 Op `/budget` vul je een bedrag, risicoprofiel en termijn in; `lib/engine/allocate.ts` verdeelt het

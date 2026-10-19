@@ -48,7 +48,7 @@ interface IntervalSpec {
 export async function getCryptoCandles(symbol: string, spec: IntervalSpec): Promise<{ candles: Candle[]; live: boolean }> {
   const entry = findInUniverse(symbol, "crypto");
   const pair = entry?.binance ?? `${symbol.toUpperCase()}USDT`;
-  return cached(`crypto:candles:${symbol}:${spec.binance}:${spec.bars}`, spec.seconds >= 86400 ? 900 : 120, () =>
+  return cached(`crypto:candles:${symbol}:${spec.binance}:${spec.bars}`, spec.seconds >= 86400 ? 900 : 60, () =>
     withFallback<{ candles: Candle[]; live: boolean }>(
       [
         ...BINANCE_HOSTS.map((host) => async () => remember(symbol, await binanceKlines(host, pair, spec))),
