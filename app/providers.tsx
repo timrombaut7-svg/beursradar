@@ -14,7 +14,8 @@ export function Providers({ children }: { children: ReactNode }) {
             staleTime: 60_000,
             gcTime: 30 * 60_000,
             retry: 1,
-            refetchOnWindowFocus: false,
+            // Terug in de app (of het tabblad): meteen verversen als de data ouder is dan staleTime
+            refetchOnWindowFocus: true,
           },
         },
       }),

@@ -62,7 +62,7 @@ const CRYPTO_FEEDS = [
 ];
 
 export async function getNews(symbol: string, name: string, type: AssetType): Promise<{ items: NewsItem[]; live: boolean }> {
-  return cached(`news:${type}:${symbol}`, 900, () =>
+  return cached(`news:${type}:${symbol}`, 300, () =>
     withFallback<{ items: NewsItem[]; live: boolean }>(
       [
         async () => {

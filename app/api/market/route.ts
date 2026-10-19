@@ -30,5 +30,5 @@ export async function GET() {
   ]);
   const movers = quotes.flatMap((q) => (q.status === "fulfilled" ? [q.value] : [])) as Quote[];
   const body: MarketOverview = { cryptoFearGreed, stockFearGreed, macro, movers };
-  return NextResponse.json(body, { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } });
+  return NextResponse.json(body, { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=30" } });
 }

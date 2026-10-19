@@ -5,7 +5,7 @@ import { rsi, sma, last, historicalVolatility } from "@/lib/indicators";
 
 /** Crypto Fear & Greed Index van alternative.me (gratis, geen key nodig). */
 export async function getCryptoFearGreed(): Promise<FearGreed> {
-  return cached("fng:crypto", 900, () =>
+  return cached("fng:crypto", 300, () =>
     withFallback(
       [
         async () => {
@@ -34,7 +34,7 @@ export async function getCryptoFearGreed(): Promise<FearGreed> {
  * RSI en volatiliteit) — dezelfde componenten die CNN deels gebruikt.
  */
 export async function getStockFearGreed(sp500?: { candles: Candle[]; live: boolean }): Promise<FearGreed> {
-  return cached("fng:stock", 900, () =>
+  return cached("fng:stock", 300, () =>
     withFallback(
       [
         async () => {

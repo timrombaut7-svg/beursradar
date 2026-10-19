@@ -32,7 +32,8 @@ export function useCandles(type: AssetType, symbol: string, tf: Timeframe) {
   return useQuery({
     queryKey: ["candles", type, symbol, tf],
     queryFn: () => getJson<CandleResponse>(`/api/candles/${type}/${encodeURIComponent(symbol)}?tf=${tf}`),
-    staleTime: tf === "1H" ? 60_000 : 300_000,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
     placeholderData: keepPreviousData,
   });
 }
@@ -52,8 +53,8 @@ export function useMarket() {
   return useQuery({
     queryKey: ["market"],
     queryFn: () => getJson<MarketOverview>("/api/market"),
-    staleTime: 60_000,
-    refetchInterval: 120_000,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 }
 
@@ -100,8 +101,8 @@ export function useTrackRecord() {
   return useQuery({
     queryKey: ["track-record"],
     queryFn: () => getJson<TrackRecord>("/api/track-record"),
-    staleTime: 120_000,
-    refetchInterval: 300_000,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 }
 

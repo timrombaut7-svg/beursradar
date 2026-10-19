@@ -7,11 +7,14 @@ import { formatCompact, formatPct, formatPrice } from "@/lib/format";
 import { useWatchlist } from "@/lib/store/watchlist";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useNow, secondsAgo } from "@/lib/useNow";
+import { LiveDot } from "@/components/LivePrice";
 
 export function AssetHeader({ a }: { a: Analysis }) {
   const { toggle, items } = useWatchlist();
   const watched = items.some((i) => i.symbol === a.asset.symbol && i.type === a.asset.type);
   const up = a.quote.changePct24h >= 0;
+  const now = useNow(5000);
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
@@ -37,6 +40,9 @@ export function AssetHeader({ a }: { a: Analysis }) {
         </div>
         <p className="truncate text-sm text-muted">{a.asset.name}</p>
         {a.asset.etf && a.asset.about && <p className="mt-0.5 text-xs text-muted">{a.asset.about}</p>}
+        <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted">
+          <LiveDot active={a.quote.source === "live"} /> Analyse bijgewerkt {secondsAgo(a.generatedAt, now)} · ververst elke minuut
+        </p>
       </div>
       <div className="flex flex-wrap items-end gap-6">
         <div className="text-right">
