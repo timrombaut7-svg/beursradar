@@ -1,21 +1,34 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { DatabaseDisabledError, getDb } from "@/lib/db";
+import { sessionUser } from "./account";
 
 export const PROFILE_COOKIE = "br_profile";
 const ONE_YEAR = 60 * 60 * 24 * 365;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Bepaalt het anonieme profiel van deze browser. Het id staat in een httpOnly-cookie;
- * bestaat het nog niet, dan wordt er één aangemaakt (`isNew`) en moet de route de
+ * Bepaalt het profiel van deze request:
+ *  - ingelogd → het profiel van het account (op elk toestel hetzelfde);
+ *  - anders het anonieme profiel uit de httpOnly-cookie. Hoort dat profiel bij een account
+ *    (bijv. na uitloggen), dan krijg je zonder geldige sessie een nieuw, leeg profiel.
+ * Bestaat er nog geen profiel, dan wordt er één aangemaakt (`isNew`) en moet de route de
  * cookie zetten via `withProfileCookie`.
  */
 export async function resolveProfile(req: NextRequest): Promise<{ id: string; isNew: boolean }> {
   const db = getDb();
+  const user = await sessionUser(req);
+  if (user) return { id: user.profileId, isNew: false };
+
   const existing = req.cookies.get(PROFILE_COOKIE)?.value;
   if (existing && UUID_RE.test(existing)) {
-    await db.profile.upsert({ where: { id: existing }, create: { id: existing }, update: {} });
-    return { id: existing, isNew: false };
+    const profile = await db.profile.findUnique({ where: { id: existing }, select: { user: { select: { id: true } } } });
+    if (!profile) {
+      // upsert: gelijktijdige requests mogen het profiel allebei proberen aan te maken
+      await db.profile.upsert({ where: { id: existing }, create: { id: existing }, update: {} });
+      return { id: existing, isNew: false };
+    }
+    if (!profile.user) return { id: existing, isNew: false };
+    // Profiel van een account zonder geldige sessie: nooit tonen
   }
   const id = crypto.randomUUID();
   await db.profile.create({ data: { id } });

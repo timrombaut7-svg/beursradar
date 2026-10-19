@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, type NextResponse } from "next/server";
 import { Client } from "pg";
 import type { Opportunity } from "@/types";
 
@@ -215,6 +215,108 @@ describeDb("Scorebord (tips)", () => {
     // In demo-modus zijn er geen echte koersen: dan wordt niets nagekeken
     expect(body.tips).toEqual([]);
     expect(body.summary.short.total).toBe(0);
+  });
+});
+
+describeDb("Accounts", () => {
+  // Een "toestel" bewaart cookies zoals een browser
+  function device() {
+    const jar = new Map<string, string>();
+    const send = (url: string, init: { method?: string; body?: unknown } = {}) =>
+      new NextRequest(new URL(url, "http://localhost"), {
+        method: init.method ?? "GET",
+        headers: {
+          ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}),
+          Cookie: [...jar].map(([k, v]) => `${k}=${v}`).join("; "),
+        },
+        body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+      });
+    const keep = (res: Response) => {
+      for (const c of (res as NextResponse).cookies.getAll()) {
+        if (c.value) jar.set(c.name, c.value);
+        else jar.delete(c.name);
+      }
+      return res;
+    };
+    return { jar, send, keep };
+  }
+  const json = async (res: Response) => ({ status: res.status, body: await res.json() });
+
+  it("maakt een account, neemt de bestaande watchlist mee en is overal hetzelfde", async () => {
+    const { POST: register } = await import("@/app/api/account/register/route");
+    const { POST: login } = await import("@/app/api/account/login/route");
+    const { GET: me } = await import("@/app/api/account/me/route");
+    const { GET: getWatch, POST: addWatch } = await import("@/app/api/watchlist/route");
+
+    // Toestel 1: eerst anoniem iets bewaren, dan een account maken
+    const phone = device();
+    phone.keep(await addWatch(phone.send("/api/watchlist", { method: "POST", body: { symbol: "ASML", name: "ASML", type: "stock" } })));
+    const reg = await json(phone.keep(await register(phone.send("/api/account/register", { method: "POST", body: { username: "  Tim.R ", password: "geheim-genoeg-1" } }))));
+    expect(reg).toEqual({ status: 201, body: { user: { username: "tim.r" } } });
+    expect(phone.jar.get("br_session")).toBeTruthy();
+    expect((await json(await me(phone.send("/api/account/me")))).body.user).toEqual({ username: "tim.r", watchlist: 1, positions: 0 });
+
+    // Dubbele naam en zwakke invoer worden geweigerd
+    const other = device();
+    expect((await register(other.send("/api/account/register", { method: "POST", body: { username: "TIM.R", password: "nog-iets-anders" } }))).status).toBe(409);
+    expect((await json(await register(other.send("/api/account/register", { method: "POST", body: { username: "ab", password: "geheim-genoeg-1" } })))).body.error).toMatch(/3 tot 30/);
+    expect((await json(await register(other.send("/api/account/register", { method: "POST", body: { username: "nieuw", password: "kort" } })))).body.error).toMatch(/8 tekens/);
+
+    // Toestel 2: anoniem iets bewaren, dan inloggen → alles samen
+    const laptop = device();
+    laptop.keep(await addWatch(laptop.send("/api/watchlist", { method: "POST", body: { symbol: "BTC", name: "Bitcoin", type: "crypto" } })));
+    expect((await login(laptop.send("/api/account/login", { method: "POST", body: { username: "tim.r", password: "fout-wachtwoord" } }))).status).toBe(401);
+    const ok = await json(laptop.keep(await login(laptop.send("/api/account/login", { method: "POST", body: { username: "Tim.R", password: "geheim-genoeg-1" } }))));
+    expect(ok.status).toBe(200);
+    const items = (await json(await getWatch(laptop.send("/api/watchlist")))).body.items.map((i: { symbol: string }) => i.symbol).sort();
+    expect(items).toEqual(["ASML", "BTC"]);
+    // En toestel 1 ziet dat ook
+    expect((await json(await getWatch(phone.send("/api/watchlist")))).body.items).toHaveLength(2);
+  });
+
+  it("toont na uitloggen niets meer van het account, ook niet met de oude profielcookie", async () => {
+    const { POST: register } = await import("@/app/api/account/register/route");
+    const { POST: logout } = await import("@/app/api/account/logout/route");
+    const { GET: me } = await import("@/app/api/account/me/route");
+    const { GET: getWatch, POST: addWatch } = await import("@/app/api/watchlist/route");
+
+    const d = device();
+    d.keep(await register(d.send("/api/account/register", { method: "POST", body: { username: "uitlog-test", password: "geheim-genoeg-2" } })));
+    await addWatch(d.send("/api/watchlist", { method: "POST", body: { symbol: "NVDA", name: "NVIDIA", type: "stock" } }));
+    const oldProfile = d.jar.get("br_profile")!;
+    const oldSession = d.jar.get("br_session")!;
+
+    d.keep(await logout(d.send("/api/account/logout", { method: "POST", body: {} })));
+    expect(d.jar.has("br_session")).toBe(false);
+    expect((await json(await me(d.send("/api/account/me")))).body.user).toBeNull();
+
+    // Iemand die de oude cookies nog heeft, komt er niet meer in
+    const thief = device();
+    thief.jar.set("br_profile", oldProfile);
+    thief.jar.set("br_session", oldSession);
+    expect((await json(await getWatch(thief.send("/api/watchlist")))).body.items).toEqual([]);
+  });
+
+  it("zet een account na 5 foute pogingen 15 minuten op slot", async () => {
+    const { POST: register } = await import("@/app/api/account/register/route");
+    const { POST: login } = await import("@/app/api/account/login/route");
+    const d = device();
+    await register(d.send("/api/account/register", { method: "POST", body: { username: "slot-test", password: "juist-wachtwoord" } }));
+    const attempt = (password: string) => login(device().send("/api/account/login", { method: "POST", body: { username: "slot-test", password } }));
+    for (let i = 0; i < 5; i++) expect((await attempt("fout")).status).toBe(401);
+    const locked = await json(await attempt("juist-wachtwoord"));
+    expect(locked.status).toBe(429);
+    expect(locked.body.error).toMatch(/15 min/);
+    expect((await attempt("x")).status).toBe(429);
+  }, 30_000);
+
+  it("bewaart wachtwoorden alleen als scrypt-hash en sessies alleen als hash", async () => {
+    const { getDb } = await import("@/lib/db");
+    const user = await getDb().user.findUnique({ where: { username: "tim.r" }, include: { sessions: true } });
+    expect(user!.passwordHash).toMatch(/^scrypt\$16384\$8\$1\$/);
+    expect(user!.passwordHash).not.toContain("geheim-genoeg-1");
+    expect(user!.sessions.length).toBeGreaterThan(0);
+    for (const s of user!.sessions) expect(s.id).toMatch(/^[0-9a-f]{64}$/);
   });
 });
 
