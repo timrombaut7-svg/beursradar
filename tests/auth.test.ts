@@ -39,7 +39,7 @@ describe("Wachtwoordslot", () => {
     expect((await proxy(req("/api/scan", await sessionToken("oud-wachtwoord")))).status).toBe(401);
 
     // De inlogpagina en het app-icoon blijven bereikbaar
-    for (const p of ["/login", "/api/login", "/icon.svg"]) {
+    for (const p of ["/login", "/api/login", "/icon.svg", "/apple-icon.png", "/manifest.webmanifest", "/icons/icon-192.png"]) {
       expect((await proxy(req(p))).headers.get("x-middleware-next")).toBe("1");
     }
   });

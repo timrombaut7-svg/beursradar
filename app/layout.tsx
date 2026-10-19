@@ -8,6 +8,8 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono-jb" });
 
 export const metadata: Metadata = {
+  applicationName: "Beursradar",
+  appleWebApp: { capable: true, title: "Beursradar", statusBarStyle: "black" },
   title: { default: "Beursradar — AI Trading & Analyse", template: "%s · Beursradar" },
   description:
     "Multi-asset analyseplatform voor aandelen, ETF's en crypto: 4-pijler analyse, AI-tradingsignalen, executieplannen en backtesting.",

@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Brain, Briefcase, LayoutDashboard, Lightbulb, Moon, Sparkles, Sun, Wallet } from "lucide-react";
+import { Brain, Briefcase, LayoutDashboard, Lightbulb, Moon, Sparkles, Sun, Wallet } from "lucide-react";
 import { SearchBar } from "./SearchBar";
 import { AccountButton } from "./account/AccountButton";
 import { useUi } from "@/lib/store/ui";
@@ -28,9 +28,8 @@ export function Header() {
     <header className="glass sticky top-0 z-40 border-b border-border/60">
       <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-3 sm:px-6">
         <Link href="/" className="flex shrink-0 items-center gap-2 font-semibold tracking-tight">
-          <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-bull to-accent text-black shadow-[0_0_20px_-4px] shadow-bull/60">
-            <Activity className="h-4 w-4" strokeWidth={2.5} />
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element -- klein SVG-logo, geen optimalisatie nodig */}
+          <img src="/icon.svg" alt="" width={32} height={32} className="h-8 w-8 rounded-[9px] shadow-[0_0_20px_-6px] shadow-bull/70" />
           <span className="hidden sm:inline">
             Beurs<span className="text-gradient">radar</span>
           </span>

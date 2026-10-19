@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_COOKIE, appPassword, isValidSession } from "@/lib/auth";
 
-/** Paden die zonder inloggen bereikbaar moeten zijn (de inlogpagina zelf en het app-icoon). */
-const PUBLIC = ["/login", "/api/login", "/icon.svg", "/favicon.ico"];
+/** Paden die zonder inloggen bereikbaar moeten zijn (de inlogpagina, het app-icoon en het manifest). */
+const PUBLIC = ["/login", "/api/login", "/icon.svg", "/favicon.ico", "/apple-icon.png", "/manifest.webmanifest"];
 
 /** Alleen de eigenaar mag de app gebruiken: alles achter een wachtwoord (als APP_PASSWORD is ingesteld). */
 export async function proxy(request: NextRequest) {
@@ -10,7 +10,7 @@ export async function proxy(request: NextRequest) {
   if (!password) return NextResponse.next();
 
   const { pathname, search } = request.nextUrl;
-  if (PUBLIC.includes(pathname)) return NextResponse.next();
+  if (PUBLIC.includes(pathname) || pathname.startsWith("/icons/")) return NextResponse.next();
   if (await isValidSession(request.cookies.get(AUTH_COOKIE)?.value, password)) return NextResponse.next();
 
   if (pathname.startsWith("/api/")) {
