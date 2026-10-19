@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 160 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 164 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -220,6 +220,18 @@ npm run db:studio        # data bekijken in Prisma Studio
   steeds waar de data staat ("opgeslagen in de database" / "in je browser").
 - **Tests:** `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres npm test` maakt
   per run een tijdelijke database aan en ruimt die op. In CI draait hiervoor een Postgres-service.
+
+## Accounts
+
+Op `/account` maak je een account met gebruikersnaam en wachtwoord (geen e-mail nodig). Je portfolio en watchlist
+hangen dan aan je account en zie je op elk toestel terug.
+
+- Wachtwoorden: scrypt (N=16384) met eigen salt; sessies: willekeurig token in een httpOnly-cookie
+  (`br_session`, 180 dagen), in de database alleen de SHA-256 ervan (`Session`).
+- Bij account maken wordt het huidige anonieme profiel het profiel van het account; bij inloggen wordt wat je
+  anoniem op dat toestel had samengevoegd. Na uitloggen geeft een oude profielcookie geen toegang meer.
+- Na 5 foute pogingen staat een account 15 minuten op slot; onbekende namen kosten even veel rekentijd.
+- Quiz, budgetkeuzes en thema blijven per toestel in de browser.
 
 ## Online zetten (Vercel)
 

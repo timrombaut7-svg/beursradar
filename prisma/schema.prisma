@@ -15,6 +15,35 @@ model Profile {
   createdAt DateTime        @default(now())
   watchlist WatchlistItem[]
   positions Position[]
+  /// Ingevuld als iemand een account met dit profiel heeft gemaakt
+  user      User?
+}
+
+/// Account met gebruikersnaam en wachtwoord; bezit precies één profiel (portfolio + watchlist).
+model User {
+  id           String    @id @default(cuid())
+  /// Kleine letters, uniek
+  username     String    @unique
+  /// scrypt-hash met eigen salt, nooit het wachtwoord zelf
+  passwordHash String
+  profileId    String    @unique
+  profile      Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  /// Mislukte inlogpogingen op rij; na 5 even op slot
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime?
+  createdAt    DateTime  @default(now())
+  sessions     Session[]
+}
+
+/// Inlogsessie. Het id is de SHA-256 van het token in de cookie, zodat een databaselek geen geldige cookies oplevert.
+model Session {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([userId])
 }
 
 model WatchlistItem {

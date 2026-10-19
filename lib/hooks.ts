@@ -119,6 +119,19 @@ export function useBudgetPlan(amount: number, risk: RiskProfile, horizon: "short
   });
 }
 
+export interface AccountInfo {
+  enabled: boolean;
+  user: { username: string; watchlist: number; positions: number } | null;
+}
+
+export function useAccount() {
+  return useQuery({
+    queryKey: ["account"],
+    queryFn: () => getJson<AccountInfo>("/api/account/me"),
+    staleTime: 60_000,
+  });
+}
+
 export function useScan() {
   return useQuery({
     queryKey: ["scan"],

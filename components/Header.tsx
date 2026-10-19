@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Activity, Brain, Briefcase, LayoutDashboard, Lightbulb, Moon, Sparkles, Sun, Wallet } from "lucide-react";
 import { SearchBar } from "./SearchBar";
+import { AccountButton } from "./account/AccountButton";
 import { useUi } from "@/lib/store/ui";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +53,7 @@ export function Header() {
             </Link>
           ))}
         </nav>
+        <AccountButton active={isActive(pathname, "/account")} />
         <button
           aria-label="Wissel thema"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
