@@ -12,7 +12,7 @@ export default function QuizPage() {
       <PageHeader
         icon={<Brain className="h-5 w-5" />}
         title="Quiz van de dag"
-        subtitle="Elke dag één vraag over beleggen en crypto, met een weetje. Speel elke dag om je reeks te laten groeien."
+        subtitle="Elke dag drie vragen over beleggen en crypto, met bij elke vraag een weetje. Een dag gemist? Haal hem hieronder in."
       />
       <DailyQuiz />
       <QuizStats />
