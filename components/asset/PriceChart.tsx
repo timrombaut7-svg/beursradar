@@ -11,7 +11,7 @@ import {
   type IChartApi,
   type UTCTimestamp,
 } from "lightweight-charts";
-import type { AssetType, TechnicalSnapshot, Timeframe } from "@/types";
+import type { AssetType, Forecast, TechnicalSnapshot, Timeframe } from "@/types";
 import { useCandles } from "@/lib/hooks";
 import { useUi } from "@/lib/store/ui";
 import { TIMEFRAMES } from "@/lib/timeframes";
@@ -30,10 +30,12 @@ export function PriceChart({
   type,
   symbol,
   technical,
+  forecast,
 }: {
   type: AssetType;
   symbol: string;
   technical?: TechnicalSnapshot;
+  forecast?: Forecast | null;
 }) {
   const { timeframe, setTimeframe, overlays, toggleOverlay, theme } = useUi();
   const { data, isLoading, isError, error } = useCandles(type, symbol, timeframe);
@@ -41,6 +43,8 @@ export function PriceChart({
   const chartRef = useRef<IChartApi | null>(null);
   // Zoom/scroll bewaren als de grafiek elke minuut met nieuwe koersen wordt herbouwd
   const viewRef = useRef<{ key: string; from: number; to: number; bars: number } | null>(null);
+  // De vooruitblik is in dagen gerekend en past dus alleen op dagcandles
+  const daily = TIMEFRAMES[timeframe].seconds === 86400;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -107,6 +111,28 @@ export function PriceChart({
       }
     }
 
+    // --- Vooruitblik: waaier van waarschijnlijke koersen na de laatste candle ------
+    let ahead = 0;
+    if (overlays.forecast && forecast && daily) {
+      const last = candles[candles.length - 1];
+      // Vanaf de laatste koers in de grafiek, zodat de lijnen er naadloos op aansluiten
+      const scale = last.close / forecast.startPrice;
+      const pts = forecast.points.filter((p) => p.time > last.time);
+      ahead = pts.length;
+      const fan = (key: "p10" | "p25" | "p50" | "p75" | "p90"): Point[] => [
+        { time: t(last.time), value: last.close },
+        ...pts.map((p) => ({ time: t(p.time), value: p[key] * scale })),
+      ];
+      const fcOpts = { ...lineOpts, color: `${accent}cc` };
+      chart.addSeries(LineSeries, { ...fcOpts, lineStyle: LineStyle.Dotted }).setData(fan("p90"));
+      chart.addSeries(LineSeries, { ...fcOpts, lineStyle: LineStyle.Dotted }).setData(fan("p10"));
+      chart.addSeries(LineSeries, { ...fcOpts, color: `${accent}88` }).setData(fan("p75"));
+      chart.addSeries(LineSeries, { ...fcOpts, color: `${accent}88` }).setData(fan("p25"));
+      chart
+        .addSeries(LineSeries, { ...lineOpts, color: accent, lineWidth: 2, lineStyle: LineStyle.Dashed, lastValueVisible: true, title: "Verwacht" })
+        .setData(fan("p50"));
+    }
+
     // --- Pane 1: RSI -----------------------------------------------------
     const rsi = chart.addSeries(LineSeries, { ...lineOpts, color: "#a855f7", lastValueVisible: true, title: "RSI" }, 1);
     rsi.setData(line(data.overlays.rsi));
@@ -132,19 +158,19 @@ export function PriceChart({
     const saved = viewRef.current?.key === viewKey ? viewRef.current : null;
     if (saved) {
       // Stond je bij de nieuwste koers, schuif dan mee met nieuwe candles
-      const shift = saved.to >= saved.bars - 1 ? candles.length - saved.bars : 0;
+      const shift = saved.to >= saved.bars - 1 ? candles.length + ahead - saved.bars : 0;
       chart.timeScale().setVisibleLogicalRange({ from: saved.from + shift, to: saved.to + shift });
     } else if (data.visibleBars && candles.length > data.visibleBars) {
-      chart.timeScale().setVisibleLogicalRange({ from: candles.length - data.visibleBars, to: candles.length + 3 });
+      chart.timeScale().setVisibleLogicalRange({ from: candles.length - data.visibleBars, to: candles.length + ahead + 3 });
     } else chart.timeScale().fitContent();
 
     return () => {
       const range = chart.timeScale().getVisibleLogicalRange();
-      if (range) viewRef.current = { key: viewKey, from: range.from, to: range.to, bars: candles.length };
+      if (range) viewRef.current = { key: viewKey, from: range.from, to: range.to, bars: candles.length + ahead };
       chart.remove();
       chartRef.current = null;
     };
-  }, [data, overlays, technical, timeframe, theme, type, symbol]);
+  }, [data, overlays, technical, forecast, daily, timeframe, theme, type, symbol]);
 
   return (
     <Card className="overflow-hidden">
@@ -170,6 +196,7 @@ export function PriceChart({
               ["ema", "EMA 20/50/200"],
               ["bollinger", "Bollinger"],
               ["levels", "S/R"],
+              ["forecast", "Voorspelling"],
             ] as const
           ).map(([k, label]) => (
             <button
@@ -196,6 +223,18 @@ export function PriceChart({
         <span>Paneel 2: RSI (14)</span>
         <span>Paneel 3: MACD (12, 26, 9)</span>
       </div>
+      {overlays.forecast && forecast && (
+        <p className="border-t border-border px-3 py-1.5 text-[11px] text-muted">
+          {daily ? (
+            <>
+              <span className="font-semibold text-accent">- - Verwacht</span> = middenscenario; de dunne lijnen tonen waar de koers
+              vroeger in 50% en 80% van de vergelijkbare gevallen bleef. Geen garantie.
+            </>
+          ) : (
+            <>De voorspelling is te zien bij 1D en 1Y.</>
+          )}
+        </p>
+      )}
     </Card>
   );
 }

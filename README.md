@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 164 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 169 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -187,6 +187,18 @@ met de live EUR/USD-koers berekend. De assistent beantwoordt ook "ik heb 1000 eu
   maximale termijn.
 
 Geen enkel model kan de toekomst voorspellen: de toets laat zien wat in het verleden werkte, niet wat gaat komen.
+
+## Vooruitblik (voorspelling)
+
+Elke grafiek (1D en 1Y) toont na de laatste candle een waaier: een gestippelde
+middenlijn ("Verwacht") en lijnen waarbinnen de koers in 50% en 80% van de gevallen bleef.
+Onder de grafiek staat de kaart **Vooruitblik** met het middenscenario, de bandbreedte en de kans op hoger.
+
+Zo wordt het berekend (`lib/engine/forecast.ts`): we zoeken in ± 5 jaar historie van de asset
+alle dagen met een vergelijkbare technische score als nu (±15 punten, zo nodig ±25), en meten hoe
+de koers daarna dag voor dag bewoog (20 handelsdagen voor aandelen/ETF's, 30 dagen voor crypto).
+Per dag nemen we de percentielen (10, 25, 50, 75, 90). Zijn er minder dan 40 vergelijkbare dagen,
+dan gebruiken we alle dagen. Dit is geen garantie: het laat zien wat er vroeger gebeurde.
 
 ## Quiz van de dag
 
