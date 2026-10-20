@@ -11,6 +11,7 @@ import { FearGreedGauge } from "@/components/FearGreedGauge";
 import { NewsFeed } from "./NewsFeed";
 import { formatCompact, formatNumber, formatPct, formatPrice, TONE_TEXT, toneOf } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { TermLabel } from "@/components/TermLabel";
 
 const ORDER: Pillar[] = ["fundamental", "technical", "sentiment", "risk"];
 const ICONS = { fundamental: BarChart3, technical: Activity, sentiment: Newspaper, risk: ShieldAlert };
@@ -18,7 +19,9 @@ const ICONS = { fundamental: BarChart3, technical: Activity, sentiment: Newspape
 function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-lg bg-panel-2 px-3 py-2" title={hint}>
-      <div className="text-[11px] text-muted">{label}</div>
+      <div className="text-[11px] text-muted">
+        <TermLabel label={label} />
+      </div>
       <div className="font-mono text-sm font-semibold tabular">{value}</div>
     </div>
   );

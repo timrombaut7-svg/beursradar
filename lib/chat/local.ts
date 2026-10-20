@@ -11,13 +11,14 @@ import type { ChatPosition } from "./tools";
 import { evidenceSentence, rejectionReason } from "@/lib/evidenceText";
 import { allocate, RISK_PROFILES, type RiskProfile } from "@/lib/engine/allocate";
 import { getRatesToEur } from "@/lib/api/livePrices";
+import { findDefinitionQuestion } from "@/lib/glossary";
 
 /**
  * Gratis, ingebouwde assistent: geen AI-dienst nodig. Herkent de vraag (welk asset,
  * wat de gebruiker wil weten) en bouwt het antwoord uit de live analyses van de app.
  */
 
-export type Intent = "down" | "up" | "buy" | "sell" | "overview" | "opportunities" | "portfolio" | "market" | "budget" | "help";
+export type Intent = "down" | "up" | "buy" | "sell" | "overview" | "opportunities" | "portfolio" | "market" | "budget" | "explain" | "help";
 
 export interface ParsedQuestion {
   intent: Intent;
@@ -165,7 +166,9 @@ export function parseQuestion(text: string, history: string[] = []): ParsedQuest
         : null;
 
   let intent: Intent;
-  if (amount !== null && !ownAsset && has(t, ["verdel", "verdeel", "budget", "beleggen", "investeren", "inleggen", "steken", "spreiden", "waarin", "waar in", "wat moet ik", "wat kan ik", "kopen"])) intent = "budget";
+  const term = ownAsset ? null : findDefinitionQuestion(text);
+  if (term) intent = "explain";
+  else if (amount !== null && !ownAsset && has(t, ["verdel", "verdeel", "budget", "beleggen", "investeren", "inleggen", "steken", "spreiden", "waarin", "waar in", "wat moet ik", "wat kan ik", "kopen"])) intent = "budget";
   else if (has(t, ["mijn portfolio", "mijn aandelen", "mijn posities", "mijn crypto", "wat ik heb", "mijn beleggingen", "portefeuille"])) intent = "portfolio";
   else if (asset && (ownAsset || followUp)) {
     if (has(t, ["dalen", "zakken", "crash", "omlaag", "vallen", "naar beneden", "dalend"])) intent = "down";
@@ -178,7 +181,7 @@ export function parseQuestion(text: string, history: string[] = []): ParsedQuest
   else if (has(t, ["markt", "stemming", "angst", "hebzucht", "fear", "greed", "sentiment", "beurs"])) intent = "market";
   else intent = "help";
 
-  const general = intent === "opportunities" || intent === "market" || intent === "help" || intent === "portfolio" || intent === "budget";
+  const general = intent === "explain" || intent === "opportunities" || intent === "market" || intent === "help" || intent === "portfolio" || intent === "budget";
   return { intent, asset: general ? null : asset, horizon, kind, amount, risk };
 }
 
@@ -343,6 +346,15 @@ async function budgetAnswer(p: ParsedQuestion): Promise<string> {
   );
 }
 
+function explainAnswer(question: string): string {
+  const t = findDefinitionQuestion(question)!;
+  return (
+    `**${t.term}**\n\n${t.short}` +
+    (t.tip ? `\n\n💡 ${t.tip}` : "") +
+    "\n\nAlle moeilijke woorden vind je in de **Woordenlijst** (het boekje bovenaan), en in de app kun je op een onderstreept woord tikken."
+  );
+}
+
 const HELP =
   "Ik ben de gratis Beursradar-assistent. Je kunt me bijvoorbeeld vragen:\n\n" +
   bullets([
@@ -352,6 +364,7 @@ const HELP =
     "*Ik heb 1000 euro, hoe moet ik dat verdelen?*",
     "*Moet ik iets verkopen uit mijn portfolio?*",
     "*Hoe is de stemming op de markt?*",
+    "*Wat is een stop-loss?* (of een ander moeilijk woord)",
   ]) +
   "\n\nNoem het aandeel of de crypto bij naam of ticker (bijv. ASML, Apple, BTC).";
 
@@ -376,6 +389,8 @@ export async function answerLocally(
     case "budget":
       report("Je budget verdelen over de beste kansen…");
       return budgetAnswer(p);
+    case "explain":
+      return explainAnswer(question);
     case "help":
       return HELP;
     default: {

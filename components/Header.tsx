@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Brain, Briefcase, LayoutDashboard, Lightbulb, Moon, Sparkles, Sun, Wallet } from "lucide-react";
+import { BookOpen, Brain, Briefcase, LayoutDashboard, Lightbulb, Moon, Sparkles, Sun, Wallet } from "lucide-react";
 import { SearchBar } from "./SearchBar";
 import { AccountButton } from "./account/AccountButton";
 import { useUi } from "@/lib/store/ui";
@@ -52,6 +52,14 @@ export function Header() {
             </Link>
           ))}
         </nav>
+        <Link
+          href="/uitleg"
+          aria-label="Woordenlijst"
+          title="Woordenlijst: moeilijke woorden uitgelegd"
+          className={cn("rounded-xl p-2 text-muted hover:bg-panel-2 hover:text-text", isActive(pathname, "/uitleg") && "bg-panel-2 text-text")}
+        >
+          <BookOpen className="h-4 w-4" />
+        </Link>
         <AccountButton active={isActive(pathname, "/account")} />
         <button
           aria-label="Wissel thema"

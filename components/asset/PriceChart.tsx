@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
+import Link from "next/link";
+import { BookOpen } from "lucide-react";
 import {
   CandlestickSeries,
   ColorType,
@@ -218,10 +220,13 @@ export function PriceChart({
         {isError && <p className="p-4 text-sm text-bear">Grafiek laden mislukt: {(error as Error).message}</p>}
         <div ref={containerRef} className="absolute inset-0" />
       </div>
-      <div className="flex gap-4 border-t border-border px-3 py-1.5 text-[11px] text-muted">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-3 py-1.5 text-[11px] text-muted">
         <span>Paneel 1: prijs & volume</span>
         <span>Paneel 2: RSI (14)</span>
         <span>Paneel 3: MACD (12, 26, 9)</span>
+        <Link href="/uitleg" className="ml-auto inline-flex shrink-0 items-center gap-1 text-accent hover:underline">
+          <BookOpen className="h-3.5 w-3.5" /> Wat betekent dit?
+        </Link>
       </div>
       {overlays.forecast && forecast && (
         <p className="border-t border-border px-3 py-1.5 text-[11px] text-muted">

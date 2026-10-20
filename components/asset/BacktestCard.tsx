@@ -5,6 +5,7 @@ import type { Analysis } from "@/types";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { formatPct, formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { TermLabel } from "@/components/TermLabel";
 
 const fmtDate = (t: number) => new Date(t * 1000).toLocaleDateString("nl-NL", { month: "short", year: "2-digit" });
 
@@ -30,7 +31,9 @@ export function BacktestCard({ a }: { a: Analysis }) {
         <div className="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
           {stats.map((s) => (
             <div key={s.label} className="rounded-lg bg-panel-2 px-3 py-2">
-              <div className="text-[11px] text-muted">{s.label}</div>
+              <div className="text-[11px] text-muted">
+                <TermLabel label={s.label} />
+              </div>
               <div className={cn("font-mono text-sm font-bold tabular", s.tone)}>{s.value}</div>
             </div>
           ))}
