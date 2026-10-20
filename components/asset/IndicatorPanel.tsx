@@ -4,12 +4,13 @@ import { formatNumber, formatPct, formatPrice } from "@/lib/format";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { TermLabel } from "@/components/TermLabel";
 
 function Cell({ label, value, badge, tone }: { label: string; value: string; badge?: string; tone?: "bull" | "bear" | "hold" | "neutral" }) {
   return (
     <div className="rounded-lg bg-panel-2 p-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] uppercase tracking-wide text-muted">{label}</span>
+        <TermLabel label={label} className="text-[11px] uppercase tracking-wide text-muted" />
         {badge && <Badge tone={tone ?? "neutral"}>{badge}</Badge>}
       </div>
       <div className="mt-1 font-mono text-lg font-semibold tabular">{value}</div>

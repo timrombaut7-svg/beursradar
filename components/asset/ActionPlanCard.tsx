@@ -5,6 +5,7 @@ import { formatPct, formatPrice } from "@/lib/format";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { TermLabel } from "@/components/TermLabel";
 
 /** Visuele ladder van stop → instap → targets met proportionele afstanden. */
 function Ladder({ a }: { a: Analysis }) {
@@ -60,7 +61,7 @@ export function ActionPlanCard({ a }: { a: Analysis }) {
             <div key={r.label} className="flex items-center justify-between gap-3 rounded-lg bg-panel-2 px-3 py-2">
               <span className="flex items-center gap-2 text-sm text-muted">
                 <r.icon className={cn("h-4 w-4", r.tone)} />
-                {r.label}
+                <TermLabel label={r.label} />
               </span>
               <span className="text-right">
                 <span className={cn("block font-mono text-sm font-semibold tabular", r.tone)}>{r.value}</span>
@@ -69,7 +70,9 @@ export function ActionPlanCard({ a }: { a: Analysis }) {
             </div>
           ))}
           <div className="rounded-lg border border-border p-3">
-            <p className="mb-1 text-xs font-medium">Risk/Reward ratio</p>
+            <p className="mb-1 text-xs font-medium">
+              <TermLabel label="Risk/Reward ratio" />
+            </p>
             <p className="font-mono text-2xl font-bold tabular text-bull">1 : {p.riskReward2.toFixed(1)}</p>
             <p className="text-[11px] text-muted">bij target 2 (target 1: 1 : {p.riskReward1.toFixed(1)})</p>
           </div>

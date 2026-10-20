@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 169 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 174 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -199,6 +199,13 @@ alle dagen met een vergelijkbare technische score als nu (±15 punten, zo nodig 
 de koers daarna dag voor dag bewoog (20 handelsdagen voor aandelen/ETF's, 30 dagen voor crypto).
 Per dag nemen we de percentielen (10, 25, 50, 75, 90). Zijn er minder dan 40 vergelijkbare dagen,
 dan gebruiken we alle dagen. Dit is geen garantie: het laat zien wat er vroeger gebeurde.
+
+## Woordenlijst
+
+Op **/uitleg** (het boekje bovenaan) staan alle moeilijke woorden en afkortingen in gewone taal,
+met zoeken en categorieën (`lib/glossary.ts`). In de app zijn labels als *RSI (14)*, *Stop-loss* of
+*Max drawdown* onderstreept: tik erop voor een korte uitleg. De assistent beantwoordt ook
+vragen als *Wat is een stop-loss?* met dezelfde uitleg.
 
 ## Quiz van de dag
 

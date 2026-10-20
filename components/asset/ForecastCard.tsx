@@ -5,6 +5,7 @@ import { useCandles } from "@/lib/hooks";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { formatPct, formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { TermLabel } from "@/components/TermLabel";
 
 const HISTORY = 60;
 const W = 640;
@@ -64,7 +65,9 @@ export function ForecastCard({ a, type }: { a: Analysis; type: AssetType }) {
         <div className="grid gap-2 sm:grid-cols-3">
           {stats.map((s) => (
             <div key={s.label} className="flex items-center justify-between gap-3 rounded-lg bg-panel-2 px-3 py-2 sm:block">
-              <div className="text-[11px] leading-tight text-muted">{s.label}</div>
+              <div className="text-[11px] leading-tight text-muted">
+                <TermLabel label={s.label} />
+              </div>
               <div className="text-right sm:text-left">
                 <div className={cn("font-mono text-sm font-bold tabular", s.tone)}>{s.value}</div>
                 <div className="text-[11px] text-muted">{s.sub}</div>
