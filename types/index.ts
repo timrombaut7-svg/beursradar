@@ -288,6 +288,34 @@ export interface Evidence {
   verdict: "proven" | "weak" | "insufficient";
 }
 
+export interface ForecastPoint {
+  time: number;
+  p10: number;
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
+}
+
+export interface Forecast {
+  /** Aantal handelsdagen (aandelen) of dagen (crypto) vooruit */
+  days: number;
+  startTime: number;
+  startPrice: number;
+  points: ForecastPoint[];
+  /** Deel van de vergelijkbare momenten waarin de koers na `days` hoger stond */
+  probUp: number;
+  medianReturn: number;
+  lowReturn: number;
+  highReturn: number;
+  /** Aantal historische momenten waarop de waaier gebaseerd is */
+  samples: number;
+  /** "similar": dagen met een vergelijkbaar technisch beeld; "all": alle dagen */
+  basis: "similar" | "all";
+  /** Technische score van nu (0-100) */
+  score: number;
+}
+
 export interface Analysis {
   asset: AssetMeta;
   quote: Quote;
@@ -308,6 +336,8 @@ export interface Analysis {
   backtest: BacktestResult;
   /** Historische toets van het koopsignaal per termijn */
   evidence: Record<Horizon, Evidence>;
+  /** Waaier van waarschijnlijke koersen voor de komende weken (null bij te weinig historie) */
+  forecast: Forecast | null;
   /** Overzicht van welke bronnen live/mock waren */
   dataSources: Record<string, DataSource>;
 }

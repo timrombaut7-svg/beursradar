@@ -12,6 +12,7 @@ import { ActionPlanCard } from "./ActionPlanCard";
 import { IndicatorPanel } from "./IndicatorPanel";
 import { PillarTabs } from "./PillarTabs";
 import { BacktestCard } from "./BacktestCard";
+import { ForecastCard } from "./ForecastCard";
 import { AiSummary } from "./AiSummary";
 import { DataSources } from "./DataSources";
 
@@ -57,7 +58,8 @@ export function AssetView({ type, symbol }: { type: AssetType; symbol: string })
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_440px]">
         {/* Signaal eerst op mobiel, rechts op desktop */}
         <div className="order-2 min-w-0 space-y-4 xl:order-1">
-          <PriceChart type={type} symbol={a.asset.symbol} technical={a.technical} />
+          <PriceChart type={type} symbol={a.asset.symbol} technical={a.technical} forecast={a.forecast} />
+          <ForecastCard a={a} type={type} />
           <PillarTabs a={a} />
           <BacktestCard a={a} />
         </div>

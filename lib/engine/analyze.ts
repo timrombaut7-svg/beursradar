@@ -17,6 +17,7 @@ import { buildPillar, fundamentalFactors, riskFactors, sentimentFactors, technic
 import { buildTradePlan } from "./tradePlan";
 import { runBacktest } from "./backtest";
 import { longEvidence, planShape, shortEvidence } from "./evidence";
+import { FORECAST_DAYS, forecast } from "./forecast";
 
 /** Lange historie (± 5 jaar dagcandles) voor de historische toets van signalen. */
 export const HISTORY_SPEC = {
@@ -144,6 +145,10 @@ export async function analyzeAsset(rawSymbol: string, type: AssetType): Promise<
     short: shortEvidence(histCandles, histSeries, shape, barsPerYear),
     long: longEvidence(histCandles, histSeries, barsPerYear, { requireEdge: !asset.etf }),
   };
+  // Vooruitblik: hoe ging de koers vroeger verder na een vergelijkbaar technisch beeld?
+  // (inclusief de live koers van vandaag, zodat de waaier vanaf het huidige beeld vertrekt)
+  const fcCandles = live ? applyLivePrice(histCandles, live) : histCandles;
+  const fc = forecast(fcCandles, fcCandles === histCandles ? histSeries : computeSeries(fcCandles), { horizon: FORECAST_DAYS[type], weekdaysOnly: type !== "crypto", price: technical.price });
 
   return {
     asset,
@@ -159,6 +164,7 @@ export async function analyzeAsset(rawSymbol: string, type: AssetType): Promise<
     tradePlan,
     backtest,
     evidence,
+    forecast: fc,
     dataSources,
   };
 }
