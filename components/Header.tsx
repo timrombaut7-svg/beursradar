@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Brain, Briefcase, LayoutDashboard, Lightbulb, Moon, Sparkles, Sun, Wallet } from "lucide-react";
+import { BookOpen, Brain, Briefcase, LayoutDashboard, Lightbulb, Moon, Newspaper, Sparkles, Sun, Wallet } from "lucide-react";
 import { SearchBar } from "./SearchBar";
 import { AccountButton } from "./account/AccountButton";
 import { useUi } from "@/lib/store/ui";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 export const NAV = [
   { href: "/", label: "Home", icon: LayoutDashboard },
+  { href: "/krant", label: "Krant", icon: Newspaper },
   { href: "/kansen", label: "Kansen", icon: Lightbulb },
   { href: "/budget", label: "Budget", icon: Wallet },
   { href: "/quiz", label: "Quiz", icon: Brain },
@@ -42,13 +43,16 @@ export function Header() {
             <Link
               key={href}
               href={href}
+              title={label}
+              aria-label={label}
               className={cn(
                 "flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted transition-colors hover:bg-panel-2 hover:text-text",
                 isActive(pathname, href) && "bg-panel-2 text-text ring-1 ring-border",
               )}
             >
               <Icon className="h-4 w-4" />
-              {label}
+              {/* Op middelgrote schermen alleen icoontjes, zodat de zoekbalk ruimte houdt */}
+              <span className="hidden xl:inline">{label}</span>
             </Link>
           ))}
         </nav>
@@ -82,7 +86,7 @@ export function BottomNav() {
       aria-label="Hoofdmenu"
       className="glass glass-solid fixed inset-x-0 bottom-0 z-40 border-t border-border/60 pb-[env(safe-area-inset-bottom)] md:hidden"
     >
-      <div className="mx-auto grid max-w-md grid-cols-6">
+      <div className="mx-auto grid max-w-md grid-cols-7">
         {NAV.map(({ href, label, icon: Icon }) => {
           const active = isActive(pathname, href);
           return (
@@ -90,11 +94,11 @@ export function BottomNav() {
               key={href}
               href={href}
               className={cn(
-                "flex flex-col items-center gap-0.5 py-2 text-[10.5px] font-medium transition-colors",
+                "flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors",
                 active ? "text-bull" : "text-muted",
               )}
             >
-              <span className={cn("grid h-7 w-11 place-items-center rounded-full transition-colors", active && "bg-bull/15")}>
+              <span className={cn("grid h-7 w-10 place-items-center rounded-full transition-colors", active && "bg-bull/15")}>
                 <Icon className="h-[18px] w-[18px]" />
               </span>
               {label}

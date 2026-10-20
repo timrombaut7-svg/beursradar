@@ -93,3 +93,35 @@ export async function getNews(symbol: string, name: string, type: AssetType): Pr
     ),
   );
 }
+
+/** Eén RSS-feed als nieuwsberichten, 5 minuten gecachet. */
+export async function getFeed(url: string, publisher: string): Promise<NewsItem[]> {
+  return cached(`feed:${url}`, 300, async () => toNewsItems(parseRss(await fetchText(url)), publisher));
+}
+
+const MARKET_FEEDS = {
+  /** Nederlands economienieuws */
+  nl: [{ url: "https://feeds.nos.nl/nosnieuwseconomie", publisher: "NOS" }],
+  /** Wall Street en de wereldwijde beurzen */
+  world: [{ url: "https://feeds.finance.yahoo.com/rss/2.0/headline?s=%5EGSPC,SPY,QQQ,%5EDJI&region=US&lang=en-US", publisher: "Yahoo Finance" }],
+  crypto: CRYPTO_FEEDS,
+};
+
+/** Algemeen marktnieuws voor de krant: Nederlands, internationaal en crypto. */
+export async function getMarketNews(): Promise<{ nl: NewsItem[]; world: NewsItem[]; crypto: NewsItem[]; live: boolean }> {
+  const load = async (feeds: { url: string; publisher: string }[], max: number) => {
+    const res = await Promise.allSettled(feeds.map((f) => getFeed(f.url, f.publisher)));
+    const all = res.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+    const seen = new Set<string>();
+    return all
+      .filter((n) => (seen.has(n.title) ? false : (seen.add(n.title), true)))
+      .sort((a, b) => b.publishedAt - a.publishedAt)
+      .slice(0, max);
+  };
+  const [nl, world, crypto] = await Promise.all([load(MARKET_FEEDS.nl, 10), load(MARKET_FEEDS.world, 10), load(MARKET_FEEDS.crypto, 8)]);
+  if (!nl.length && !world.length && !crypto.length) {
+    // Geen enkele feed bereikbaar: voorbeeldberichten, duidelijk als mock gemarkeerd
+    return { nl: [], world: mockNews("SPY", "S&P 500", "stock").slice(0, 6), crypto: mockNews("BTC", "Bitcoin", "crypto").slice(0, 4), live: false };
+  }
+  return { nl, world, crypto, live: true };
+}

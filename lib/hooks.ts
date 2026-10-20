@@ -2,7 +2,7 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import type { TrackRecord } from "@/lib/server/tips";
 import type { AllocationPlan, RiskProfile } from "@/lib/engine/allocate";
-import type { Analysis, AssetType, Candle, Evidence, LivePrice, MarketOverview, Opportunity, Quote, SearchResult, SignalRow, Timeframe } from "@/types";
+import type { Analysis, AssetType, Candle, Evidence, LivePrice, MarketOverview, Newspaper, Opportunity, Quote, SearchResult, SignalRow, Timeframe } from "@/types";
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -163,5 +163,14 @@ export function useLivePrices(assets?: { symbol: string; type: AssetType }[]) {
     staleTime: 10_000,
     refetchInterval: 15_000,
     placeholderData: keepPreviousData,
+  });
+}
+
+export function useNewspaper() {
+  return useQuery({
+    queryKey: ["krant"],
+    queryFn: () => getJson<Newspaper>("/api/krant"),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 }

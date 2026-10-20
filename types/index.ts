@@ -440,3 +440,48 @@ export interface Opportunity {
   /** Andere ETF's die dezelfde index volgen (alleen de beste wordt als kans getoond) */
   alternatives?: string[];
 }
+
+// ---------------------------------------------------------------------------
+// Krant
+// ---------------------------------------------------------------------------
+
+export interface MarketTick {
+  symbol: string;
+  name: string;
+  /** "index" | "grondstof" | "valuta" | "crypto" */
+  group: "index" | "commodity" | "fx" | "crypto";
+  price: number;
+  changePct: number;
+  currency: string;
+  marketState: MarketState;
+}
+
+export interface Mover {
+  symbol: string;
+  name: string;
+  type: AssetType;
+  price: number;
+  changePct: number;
+  currency: string;
+}
+
+export interface NewspaperStory {
+  headline: string;
+  intro: string;
+  paragraphs: string[];
+  /** Korte "wat betekent dit voor jou?" */
+  takeaway: string;
+  tone: "bull" | "bear" | "hold";
+}
+
+export interface Newspaper {
+  generatedAt: number;
+  lead: NewspaperStory;
+  markets: MarketTick[];
+  movers: { up: Mover[]; down: Mover[] };
+  fearGreed: { stock: FearGreed; crypto: FearGreed };
+  macro: MacroData;
+  news: { nl: NewsItem[]; world: NewsItem[]; crypto: NewsItem[]; live: boolean };
+  /** Kwamen de koersen live binnen? */
+  live: boolean;
+}
