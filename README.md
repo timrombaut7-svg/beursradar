@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 178 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 187 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -199,6 +199,16 @@ alle dagen met een vergelijkbare technische score als nu (±15 punten, zo nodig 
 de koers daarna dag voor dag bewoog (20 handelsdagen voor aandelen/ETF's, 30 dagen voor crypto).
 Per dag nemen we de percentielen (10, 25, 50, 75, 90). Zijn er minder dan 40 vergelijkbare dagen,
 dan gebruiken we alle dagen. Dit is geen garantie: het laat zien wat er vroeger gebeurde.
+
+## Portfolio uit een screenshot
+
+Op **Portfolio → Importeer uit een screenshot** kies je een screenshot van je portfolio in een andere
+app (DEGIRO, Trade Republic, Bitvavo, …). De tekst wordt **in de browser** gelezen met tesseract.js
+(Nederlands + Engels; donkere modus wordt eerst omgekeerd), de afbeelding wordt niet geüpload.
+`POST /api/portfolio/screenshot` herkent daarna de beleggingen (`lib/portfolio/screenshot.ts`):
+aantal (“12 stuks”, “0,05 BTC”), waarde en winst/verlies. Ontbreekt het aantal, dan rekenen we het
+uit de waarde ÷ live koers; de aankoopprijs volgt uit waarde − winst, anders de huidige koers.
+Je controleert alles en bevestigt zelf; bestaande posities van dezelfde belegging worden vervangen.
 
 ## De Beurskrant
 
