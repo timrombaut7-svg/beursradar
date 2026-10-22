@@ -1,14 +1,15 @@
 "use client";
 import { useRef, useState } from "react";
-import { Camera, Check, ImageUp, Loader2, X } from "lucide-react";
+import { ArrowLeftRight, Camera, Check, ImageUp, Loader2, X } from "lucide-react";
 import type { ImportProposal } from "@/lib/portfolio/screenshot";
+import { rowsFromWords, wordsFromBlocks } from "@/lib/portfolio/ocrRows";
 import { usePortfolio } from "@/lib/store/portfolio";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-type Row = ImportProposal & { key: string; selected: boolean; qtyText: string; priceText: string };
+type Row = ImportProposal & { key: string; selected: boolean; qtyText: string; priceText: string; originalPriceText: string };
 
 /**
  * Maakt de screenshot beter leesbaar voor de tekstherkenning: grijs, donkere modus omgekeerd
@@ -42,6 +43,23 @@ const toNumber = (t: string) => {
   return Number.isFinite(n) && n > 0 ? n : null;
 };
 
+/** Waarde nu (aantal × koers) en of dat past bij de waarde op de screenshot: zo zie je een verkeerd aantal meteen. */
+function ValueCheck({ row }: { row: Row }) {
+  const qty = toNumber(row.qtyText);
+  if (!qty || !(row.price > 0)) return null;
+  const now = qty * row.price;
+  const fits = row.screenshotValue ? Math.abs(Math.log(now / row.screenshotValue)) < Math.log(1.35) : null;
+  return (
+    <p className={cn("mt-1 pl-6 text-[11px]", fits === false ? "text-hold" : "text-muted")}>
+      Waarde nu: {formatPrice(now, row.currency)}
+      {fits === true && <span className="text-bull"> · klopt met je screenshot</span>}
+      {fits === false && (
+        <> · op je screenshot ± {formatPrice(row.screenshotValue!, row.currency)}. Klopt het aantal? Met ⇄ wissel je aantal en prijs om.</>
+      )}
+    </p>
+  );
+}
+
 /** Screenshot van je portfolio in een andere app → posities in Beursradar. */
 export function ScreenshotImport() {
   const { positions, add, remove } = usePortfolio();
@@ -70,26 +88,32 @@ export function ScreenshotImport() {
         logger: (m) => m.status === "recognizing text" && setStatus({ step: "reading", progress: m.progress }),
       });
       const canvas = await prepareImage(file);
-      const { data } = await worker.recognize(canvas);
+      const { data } = await worker.recognize(canvas, {}, { text: true, blocks: true });
       await worker.terminate();
-      setOcrText(data.text);
+      // Woorden op dezelfde hoogte weer als één rij, zodat aantal en bedragen bij de juiste naam blijven
+      const rows = rowsFromWords(wordsFromBlocks(data.blocks));
+      setOcrText(rows || data.text);
 
       setStatus({ step: "matching" });
       const res = await fetch("/api/portfolio/screenshot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: data.text.slice(0, 20_000) }),
+        body: JSON.stringify({ text: (rows || data.text).slice(0, 20_000), raw: data.text.slice(0, 20_000) }),
       });
       const json = (await res.json()) as { proposals?: ImportProposal[]; error?: string };
       if (!res.ok || !json.proposals) throw new Error(json.error ?? "Herkennen mislukt");
       setRows(
-        json.proposals.map((p) => ({
-          ...p,
-          key: `${p.type}:${p.symbol}`,
-          selected: true,
-          qtyText: String(Number(p.quantity.toPrecision(8))),
-          priceText: p.buyPrice.toFixed(p.buyPrice < 1 ? 6 : 2),
-        })),
+        json.proposals.map((p) => {
+          const priceText = p.buyPrice > 0 ? p.buyPrice.toFixed(p.buyPrice < 1 ? 6 : 2) : "";
+          return {
+            ...p,
+            key: `${p.type}:${p.symbol}`,
+            selected: true,
+            qtyText: p.quantity === null ? "" : String(Number(p.quantity.toPrecision(8))),
+            priceText,
+            originalPriceText: priceText,
+          };
+        }),
       );
       setStatus({ step: "review" });
     } catch (err) {
@@ -194,19 +218,31 @@ export function ScreenshotImport() {
                         {current > 0 && <span className="block text-[11px] text-hold">Vervangt je huidige {Number(current.toPrecision(8))} stuks</span>}
                       </span>
                     </label>
-                    <div className="mt-2 grid grid-cols-2 gap-2 pl-6">
+                    <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-end gap-2 pl-6">
                       <label className="text-[11px] text-muted">
-                        Aantal{r.quantityFrom === "value" && <span className="text-hold"> (geschat uit de waarde)</span>}
+                        Aantal
+                        {r.quantityFrom === "value" && <span className="text-hold"> (uit de waarde)</span>}
+                        {r.quantityFrom === "missing" && !r.qtyText && <span className="text-hold"> (vul in)</span>}
                         <input value={r.qtyText} onChange={(e) => update(r.key, { qtyText: e.target.value })} inputMode="decimal" className={cn(input, "mt-0.5")} />
                       </label>
+                      <button
+                        type="button"
+                        onClick={() => update(r.key, { qtyText: r.priceText, priceText: r.qtyText })}
+                        title="Aantal en prijs omwisselen"
+                        aria-label="Aantal en prijs omwisselen"
+                        className="mb-0.5 grid h-7 w-7 place-items-center rounded-md text-muted hover:bg-panel hover:text-text"
+                      >
+                        <ArrowLeftRight className="h-3.5 w-3.5" />
+                      </button>
                       <label className="text-[11px] text-muted">
-                        Aankoopprijs ({r.currency}){r.buyPriceFrom === "current" && <span className="text-hold"> (= huidige koers)</span>}
+                        Aankoopprijs ({r.currency}){r.buyPriceFrom === "current" && <span className="text-hold"> (= koers nu)</span>}
                         <input value={r.priceText} onChange={(e) => update(r.key, { priceText: e.target.value })} inputMode="decimal" className={cn(input, "mt-0.5")} />
+                        {r.buyPriceShown && r.priceText === r.originalPriceText && (
+                          <span className="mt-0.5 block text-right">≈ {formatPrice(r.buyPriceShown.amount, r.buyPriceShown.currency)}</span>
+                        )}
                       </label>
                     </div>
-                    {r.price > 0 && toNumber(r.qtyText) && (
-                      <p className="mt-1 pl-6 text-[11px] text-muted">Waarde nu: {formatPrice(toNumber(r.qtyText)! * r.price, r.currency)}</p>
-                    )}
+                    <ValueCheck row={r} />
                   </li>
                 );
               })}
