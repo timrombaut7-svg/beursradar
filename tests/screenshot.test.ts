@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { extractNumbers, parseNumber, parsePortfolioText, toProposals } from "@/lib/portfolio/screenshot";
+import { extractNumbers, fixMisreadCurrency, parseNumber, parsePortfolioText, toProposals } from "@/lib/portfolio/screenshot";
+import { rowsFromWords } from "@/lib/portfolio/ocrRows";
 
 describe("getallen lezen", () => {
   it("snapt Nederlandse en Engelse notatie", () => {
@@ -54,7 +55,13 @@ describe("portfolio-screenshot lezen", () => {
 
   it("leest een tabel op één regel (DEGIRO) en negeert getallen in namen", () => {
     const h = parsePortfolioText("Product Aantal Koers Waarde\nAPPLE INC. AAPL 10 182,50 1.825,00\nVANGUARD FTSE ALL-WORLD VWRL 25 118,20 2.955,00\nSPDR S&P 500 ETF SPY 3 580,10 1.740,30");
-    expect(h.map((x) => [x.symbol, x.quantity])).toEqual([
+    const prices = {
+      "stock:AAPL": { price: 183, currency: "USD" },
+      "stock:VWRL.AS": { price: 118, currency: "EUR" },
+      "stock:SPY": { price: 579, currency: "USD" },
+    };
+    // Geen "stuks" en geen valutateken: aantal × koers = waarde wijst het aantal aan
+    expect(toProposals(h, prices, { EUR: 1, USD: 0.9 }).map((p) => [p.symbol, p.quantity])).toEqual([
       ["AAPL", 10],
       ["VWRL.AS", 25],
       ["SPY", 3],
@@ -110,5 +117,91 @@ describe("voorstellen maken", () => {
     expect(p.quantityFrom).toBe("value");
     expect(p.buyPrice).toBe(160);
     expect(p.buyPriceFrom).toBe("current");
+  });
+});
+
+describe("aantal en koers niet verwisselen", () => {
+  const toEur = { EUR: 1, USD: 0.9 };
+  const propose = (text: string, symbol: string, price: number, currency = "USD") =>
+    toProposals(parsePortfolioText(text), { [`stock:${symbol}`]: { price, currency } }, toEur)[0];
+
+  it("ziet dat 2 het aantal is als de koers (150) ervoor staat", () => {
+    // 2 aandelen van € 150 = € 300; NVIDIA kost nu $172 ≈ € 155
+    const p = propose("NVIDIA\n150,00 2 € 300,00", "NVDA", 172);
+    expect(p.quantity).toBe(2);
+    expect(p.quantityFrom).toBe("screenshot");
+  });
+
+  it("gebruikt de waarde op de screenshot als er geen derde getal is", () => {
+    const p = propose("NVIDIA 150,00\n2\n€ 312,00", "NVDA", 172);
+    expect(p.quantity).toBe(2);
+  });
+
+  it("kiest het getal dat niet op een koers lijkt als er geen waarde staat", () => {
+    expect(propose("Apple Inc. 150,00 2", "AAPL", 165).quantity).toBe(2);
+  });
+
+  it("herkent aantal en waarde zonder valutateken in de verkeerde volgorde", () => {
+    expect(propose("AMD 300,00 2", "AMD", 150).quantity).toBe(2);
+  });
+
+  it("herstelt valutatekens die als letter gelezen zijn", () => {
+    expect(fixMisreadCurrency("Apple S150.00 2 E300,00")).toBe("Apple $150.00 2 €300,00");
+    expect(fixMisreadCurrency("AES 2024 Q3 E5")).toBe("AES 2024 Q3 E5");
+    expect(propose("Apple S150.00 2 S300.00", "AAPL", 152).quantity).toBe(2);
+  });
+
+  it("neemt een gemiddelde aankoopprijs over als die erbij staat", () => {
+    const p = propose("Tesla\nAantal 4\nGem. aankoopprijs € 200,00\n€ 1.000,00", "TSLA", 250);
+    expect(p.quantity).toBe(4);
+    expect(p.buyPrice).toBeCloseTo(200 / 0.9, 6);
+    expect(p.buyPriceFrom).toBe("screenshot");
+  });
+
+  it("rondt een uit de waarde berekend aantal aandelen af op hele stuks", () => {
+    // € 935,20 bij een koers van $525 (≈ € 472,50): 1,98 → 2 stuks
+    const p = propose("Microsoft € 467,60\n€ 935,20", "MSFT", 525);
+    expect(p.quantity).toBe(2);
+    expect(p.quantityFrom).toBe("value");
+  });
+
+  it("laat het aantal leeg als er alleen een koers staat", () => {
+    const p = propose("Apple\n150,00", "AAPL", 165);
+    expect(p.quantity).toBeNull();
+    expect(p.quantityFrom).toBe("missing");
+  });
+
+  it("geeft de waarde van de screenshot mee om het aantal te controleren", () => {
+    const p = propose("NVIDIA\n150,00 2 € 300,00", "NVDA", 172);
+    expect(p.screenshotValue).toBeCloseTo(300 / 0.9, 6);
+    // De aankoopprijs ook in euro, zoals op de screenshot
+    expect(propose("Apple\n€ 1.800,00 +€ 180,00\n10 stuks", "AAPL", 200).buyPriceShown).toEqual({ amount: expect.closeTo(162, 6), currency: "EUR" });
+  });
+
+  it("telt een los streepje niet als min en stopt bij het totaal", () => {
+    expect(extractNumbers("Apple - 12 stuks")[0].sign).toBeNull();
+    expect(extractNumbers("Apple −€ 12,00")[0].sign).toBe("-");
+    // De tekstherkenning leest een min soms als lang streepje
+    expect(extractNumbers("Apple —€ 61,50")[0].sign).toBe("-");
+    const [btc] = parsePortfolioText("Bitcoin € 2.200,80\n0,03 BTC\nTotaal € 6.402,52");
+    expect(btc.value?.amount).toBe(2200.8);
+  });
+});
+
+describe("rijen uit de tekstherkenning", () => {
+  it("zet kolommen die los gelezen zijn terug in rijen", () => {
+    const w = (text: string, x0: number, y0: number, y1: number) => ({ text, x0, x1: x0 + 40, y0, y1 });
+    // Eerst de linkerkolom, dan de rechterkolom (zoals de tekstherkenning het soms doet)
+    const words = [
+      w("Apple", 10, 100, 120),
+      w("12", 10, 124, 138),
+      w("stuks", 40, 124, 138),
+      w("€", 300, 101, 119),
+      w("2.271,60", 320, 101, 119),
+      w("+€", 300, 125, 137),
+      w("210,40", 330, 125, 137),
+    ];
+    expect(rowsFromWords(words)).toBe("Apple € 2.271,60\n12 stuks +€ 210,40");
+    expect(rowsFromWords([])).toBe("");
   });
 });

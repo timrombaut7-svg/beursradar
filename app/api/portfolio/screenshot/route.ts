@@ -8,7 +8,12 @@ import { RequestValidationError } from "@/lib/server/profile";
 
 export const dynamic = "force-dynamic";
 
-const input = z.object({ text: z.string().max(20_000) });
+const input = z.object({
+  /** De tekst per visuele rij (woorden op dezelfde hoogte samengevoegd) */
+  text: z.string().max(20_000),
+  /** De tekst zoals de tekstherkenning hem gaf, als reserve */
+  raw: z.string().max(20_000).optional(),
+});
 
 /**
  * POST /api/portfolio/screenshot — de tekst die de browser uit een portfolio-screenshot las
@@ -17,8 +22,14 @@ const input = z.object({ text: z.string().max(20_000) });
  */
 export async function POST(req: Request) {
   try {
-    const { text } = await parseBody(req, input);
+    const { text, raw } = await parseBody(req, input);
     const holdings = parsePortfolioText(text);
+    // Wat alleen in de ruwe tekst herkend werd, komt erbij
+    if (raw) {
+      for (const h of parsePortfolioText(raw)) {
+        if (!holdings.some((x) => x.symbol === h.symbol && x.type === h.type)) holdings.push(h);
+      }
+    }
     const assets = holdings.map((h) => ({ symbol: h.symbol, type: h.type }));
     const [live, toEur] = await Promise.all([getLivePrices(assets), getRatesToEur()]);
     const prices: Record<string, { price: number; currency: string }> = {};

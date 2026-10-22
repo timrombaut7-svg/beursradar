@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 187 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 198 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -203,12 +203,23 @@ dan gebruiken we alle dagen. Dit is geen garantie: het laat zien wat er vroeger 
 ## Portfolio uit een screenshot
 
 Op **Portfolio → Importeer uit een screenshot** kies je een screenshot van je portfolio in een andere
-app (DEGIRO, Trade Republic, Bitvavo, …). De tekst wordt **in de browser** gelezen met tesseract.js
-(Nederlands + Engels; donkere modus wordt eerst omgekeerd), de afbeelding wordt niet geüpload.
-`POST /api/portfolio/screenshot` herkent daarna de beleggingen (`lib/portfolio/screenshot.ts`):
-aantal (“12 stuks”, “0,05 BTC”), waarde en winst/verlies. Ontbreekt het aantal, dan rekenen we het
-uit de waarde ÷ live koers; de aankoopprijs volgt uit waarde − winst, anders de huidige koers.
-Je controleert alles en bevestigt zelf; bestaande posities van dezelfde belegging worden vervangen.
+app (DEGIRO, Trade Republic, Bitvavo, Bolero, …). De tekst wordt **in de browser** gelezen met tesseract.js
+(Nederlands + Engels; donkere modus wordt eerst omgekeerd); de afbeelding wordt niet geüpload.
+Woorden op dezelfde hoogte worden weer als één rij samengevoegd (`lib/portfolio/ocrRows.ts`), zodat
+naam, aantal en bedragen bij elkaar blijven, ook als de tekstherkenning de kolommen los leest.
+
+`POST /api/portfolio/screenshot` herkent daarna de beleggingen (`lib/portfolio/screenshot.ts`).
+Apps zetten getallen in allerlei volgordes en vaak zonder valutateken, dus het aantal is niet
+"het eerste getal", maar wordt gecontroleerd met de live koers:
+1. een getal met "stuks", "aandelen", "x", de ticker ("0,05 BTC") of "Aantal:" erbij;
+2. drie getallen met aantal × koers = waarde ("190,40  2  € 380,80");
+3. het getal waarvoor aantal × live koers past bij de waarde op de screenshot;
+4. anders waarde ÷ live koers (aandelen afgerond op hele stuks), of het getal dat niet op een koers lijkt.
+
+De aankoopprijs volgt uit waarde − winst/verlies, of een bedrag met "gem. aankoopprijs"/"GAK" ervoor,
+anders de huidige koers. € en $ die als letter gelezen zijn ("E150,00", "S150.00") worden hersteld.
+Je ziet per belegging of aantal × koers klopt met je screenshot, kunt aantal en prijs met ⇄ omwisselen
+en bevestigt zelf; bestaande posities van dezelfde belegging worden vervangen.
 
 ## De Beurskrant
 
