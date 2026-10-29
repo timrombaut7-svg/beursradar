@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { usePositionAdvice } from "@/lib/usePositionAdvice";
 import { SellAdviceBadge } from "@/components/kansen/AdviceBadge";
 import { ScreenshotImport } from "./ScreenshotImport";
+import { SellAlerts } from "./SellAlerts";
 
 const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4", "#84cc16", "#f97316", "#ec4899", "#64748b"];
 
@@ -137,6 +138,7 @@ export function PortfolioView() {
 
   return (
     <div className="space-y-4">
+      <SellAlerts />
       <ScreenshotImport />
       <AddPositionForm />
       <div className="grid gap-4 sm:grid-cols-3">
