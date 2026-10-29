@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 198 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 201 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -199,6 +199,16 @@ alle dagen met een vergelijkbare technische score als nu (±15 punten, zo nodig 
 de koers daarna dag voor dag bewoog (20 handelsdagen voor aandelen/ETF's, 30 dagen voor crypto).
 Per dag nemen we de percentielen (10, 25, 50, 75, 90). Zijn er minder dan 40 vergelijkbare dagen,
 dan gebruiken we alle dagen. Dit is geen garantie: het laat zien wat er vroeger gebeurde.
+
+## Verkoopmeldingen (push)
+
+Op **Portfolio → Verkoopmeldingen** zet je pushmeldingen aan. Elk half uur roept een GitHub Action
+(`.github/workflows/sell-alerts.yml`) `GET /api/cron/sell-alerts` aan; die berekent voor iedereen met
+meldingen hetzelfde verkoopadvies als op de Portfolio-pagina (`sellAdvice`) en stuurt een melding bij
+**verkopen** of **deels winst nemen** (`lib/server/push.ts`). Dezelfde melding komt pas na 72 uur opnieuw;
+nooit op basis van voorbeeldkoersen. De VAPID-sleutels maakt de app zelf aan en bewaart ze in de
+database (tabel `AppSecret`), dus er hoeft niets ingesteld te worden. Op de iPhone werken meldingen
+alleen als de app op het beginscherm staat (iOS 16.4+).
 
 ## Portfolio uit een screenshot
 

@@ -11,12 +11,14 @@ datasource db {
 
 /// Anoniem profiel per browser (cookie), zodat data per gebruiker gescheiden blijft zonder login.
 model Profile {
-  id        String          @id
-  createdAt DateTime        @default(now())
-  watchlist WatchlistItem[]
-  positions Position[]
+  id                String             @id
+  createdAt         DateTime           @default(now())
+  watchlist         WatchlistItem[]
+  positions         Position[]
   /// Ingevuld als iemand een account met dit profiel heeft gemaakt
-  user      User?
+  user              User?
+  pushSubscriptions PushSubscription[]
+  sellAlerts        SellAlert[]
 }
 
 /// Account met gebruikersnaam en wachtwoord; bezit precies één profiel (portfolio + watchlist).
@@ -106,4 +108,35 @@ model Tip {
 
   @@index([createdAt])
   @@index([type, symbol, horizon])
+}
+
+/// Een toestel dat pushmeldingen wil krijgen (Web Push)
+model PushSubscription {
+  id        String   @id @default(cuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([profileId])
+}
+
+/// Verstuurde verkoopmelding, zodat dezelfde melding niet elk half uur opnieuw komt
+model SellAlert {
+  id         String   @id @default(cuid())
+  profileId  String
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  positionId String
+  action     String
+  createdAt  DateTime @default(now())
+
+  @@index([profileId, positionId])
+}
+
+/// Sleutels die de app zelf aanmaakt (zoals de VAPID-sleutels voor pushmeldingen)
+model AppSecret {
+  key   String @id
+  value String
 }
