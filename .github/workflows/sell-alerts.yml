@@ -1,20 +1,31 @@
 name: Achtergrondtaken
 
-# Elke 10 minuten:
-#  - de trading bot doet een ronde (kopen/verkopen met zijn eigen €100.000 nepgeld);
-#  - Beursradar bekijkt de posities van iedereen met meldingen aan en stuurt een
-#    pushmelding als iets verkocht moet worden.
+# Elke 10 minuten start een run die zelf ± 10 minuten lang bezig blijft:
+#  - verkoopmeldingen: Beursradar bekijkt de posities van iedereen met meldingen aan
+#    en stuurt een pushmelding als iets verkocht moet worden;
+#  - de trading bot doet elke minuut een ronde (kopen/verkopen met zijn eigen nepgeld).
+# GitHub start geplande runs hooguit elke 5 minuten (en soms later), daarom de lus.
 on:
   schedule:
     - cron: "*/10 * * * *"
   workflow_dispatch:
 
+# Nooit twee runs tegelijk; een nieuwe wacht tot de vorige klaar is
+concurrency:
+  group: achtergrondtaken
+  cancel-in-progress: false
+
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 14
     steps:
-      - name: Trading bot
-        run: curl -fsS --max-time 120 https://beursradar.vercel.app/api/cron/bot || true
       - name: Verkoopmeldingen
-        run: curl -fsS --max-time 120 https://beursradar.vercel.app/api/cron/sell-alerts
+        run: curl -fsS --max-time 120 https://beursradar.vercel.app/api/cron/sell-alerts || true
+      - name: Trading bot (elke minuut)
+        run: |
+          for i in $(seq 1 10); do
+            curl -sS --max-time 55 https://beursradar.vercel.app/api/cron/bot || true
+            echo
+            sleep 55
+          done

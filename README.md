@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 219 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 220 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -205,12 +205,12 @@ dan gebruiken we alle dagen. Dit is geen garantie: het laat zien wat er vroeger 
 Onder **Portfolio** staan drie tabbladen: je eigen portfolio, het **€100k-spel** (`/spel`) en de **trading bot** (`/bot`).
 - **Spel:** elk profiel krijgt € 100.000 nepgeld en koopt/verkoopt tegen de live koers (in euro, 0,1% kosten).
   Alleen de orders worden bewaard (`GameTrade`); cash en posities volgen daaruit (`replayTrades` in `lib/engine/paper.ts`).
-- **Bot:** een daytrader, één voor de hele app, met een eigen € 100.000. Elke 10 minuten (GitHub Action → `GET /api/cron/bot`)
+- **Bot:** een daytrader, één voor de hele app, met een eigen € 100.000. Elke minuut (GitHub Action → `GET /api/cron/bot`)
   beslist `botDecide`: bij +0,8% de helft verkopen en de stop net boven de instapprijs, bij +1,5% alles verkopen,
   bij −1% of een verkoopsignaal eruit, en niets langer dan 24 uur vasthouden. Daarna kopen: assets met een
   korte-termijn koopsignaal die vandaag tussen +0,2% en +5% staan (momentum), max. 5 posities van elk 20%;
   na een verkoop 2 uur niet terugkopen. Aandelen alleen als hun beurs open is, crypto 24/7, nooit op
-  voorbeeldkoersen. Hooguit één ronde per 8 minuten (Postgres advisory lock).
+  voorbeeldkoersen. Hooguit één ronde per 45 seconden (Postgres advisory lock).
 - **De bot leert** (`lib/engine/learn.ts`): bij elke aankoop bewaart hij de kenmerken (signaalscore, bewezen,
   stijging vandaag, RSI, Fear & Greed, nieuwssentiment, beweeglijkheid, S&P 500/Bitcoin vandaag, tijdstip).
   Uit elke verkoop leert hij per kenmerk het gemiddelde resultaat, voorzichtig naar 0 getrokken bij weinig trades

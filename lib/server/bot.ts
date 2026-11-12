@@ -9,14 +9,14 @@ import { adjustScore, learn, type LearnedModel, type TradeFeatures } from "@/lib
 import type { Prisma } from "@/lib/generated/prisma/client";
 
 /** Minimaal zoveel minuten tussen twee rondes (de route is openbaar). */
-const MIN_ROUND_MINUTES = 8;
+const MIN_ROUND_MINUTES = 0.75;
 const LOCK_ID = 424242;
 
 const isSell = (a: string) => a === "SELL" || a === "STRONG_SELL";
 
 /**
  * Eén ronde van de trading bot: koersen en signalen ophalen, beslissen (botDecide) en uitvoeren.
- * Draait elke 10 minuten via GitHub Actions. Alleen op live koersen; aandelen alleen als hun beurs open is.
+ * Draait elke minuut via GitHub Actions. Alleen op live koersen; aandelen alleen als hun beurs open is.
  */
 export async function runBot(now = new Date()): Promise<{ ran: boolean; reason?: string; trades: number; equityEur?: number }> {
   const db = getDb();
@@ -173,13 +173,22 @@ export function learnFrom(trades: { side: string; quantity: number; priceEur: nu
   );
 }
 
+/** Elk n-de punt, plus altijd het laatste. */
+export function thin<T>(points: T[], max: number): T[] {
+  if (points.length <= max) return points;
+  const step = Math.ceil(points.length / max);
+  const out = points.filter((_, i) => i % step === 0);
+  if (out[out.length - 1] !== points[points.length - 1]) out.push(points[points.length - 1]);
+  return out;
+}
+
 /** Alles wat de Bot-pagina toont. */
 export async function getBotState() {
   const db = getDb();
   const [positions, trades, equity] = await Promise.all([
     db.botPosition.findMany({ orderBy: { openedAt: "asc" } }),
     db.botTrade.findMany({ orderBy: { createdAt: "asc" } }),
-    db.botEquity.findMany({ orderBy: { createdAt: "asc" }, take: 2000 }),
+    db.botEquity.findMany({ orderBy: { createdAt: "asc" } }),
   ]);
   const { cashEur } = replayTrades(trades);
   const quotes = await eurQuotes(positions.map((p) => ({ symbol: p.symbol, type: p.type as AssetType })));
@@ -208,7 +217,8 @@ export async function getBotState() {
       wins: closed.filter((t) => (t.pnlEur ?? 0) > 0).length,
       realizedEur: closed.reduce((s, t) => s + (t.pnlEur ?? 0), 0),
     },
-    equity: [{ t: equity[0]?.createdAt.getTime() ?? Date.now(), v: START_CASH }, ...equity.map((e) => ({ t: e.createdAt.getTime(), v: e.equityEur }))],
+    // Elke minuut een punt is te veel voor een telefoonscherm: hooguit ± 300 punten, het laatste altijd erbij
+    equity: [{ t: equity[0]?.createdAt.getTime() ?? Date.now(), v: START_CASH }, ...thin(equity, 300).map((e) => ({ t: e.createdAt.getTime(), v: e.equityEur }))],
     lastRunAt: equity[equity.length - 1]?.createdAt.getTime() ?? null,
     learned: learnFrom(trades),
   };
