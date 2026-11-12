@@ -205,7 +205,7 @@ dan gebruiken we alle dagen. Dit is geen garantie: het laat zien wat er vroeger 
 Onder **Portfolio** staan drie tabbladen: je eigen portfolio, het **€100k-spel** (`/spel`) en de **trading bot** (`/bot`).
 - **Spel:** elk profiel krijgt € 100.000 nepgeld en koopt/verkoopt tegen de live koers (in euro, 0,1% kosten).
   Alleen de orders worden bewaard (`GameTrade`); cash en posities volgen daaruit (`replayTrades` in `lib/engine/paper.ts`).
-- **Bot:** een daytrader, één voor de hele app, met een eigen € 100.000. Elke minuut (GitHub Action → `GET /api/cron/bot`)
+- **Bot:** een daytrader, één voor de hele app, met een eigen € 100.000. Elke minuut (een GitHub Action die steeds bijna 6 uur doorloopt → `GET /api/cron/bot`)
   beslist `botDecide`: bij +0,8% de helft verkopen en de stop net boven de instapprijs, bij +1,5% alles verkopen,
   bij −1% of een verkoopsignaal eruit, en niets langer dan 24 uur vasthouden. Daarna kopen: assets met een
   korte-termijn koopsignaal die vandaag tussen +0,2% en +5% staan (momentum), max. 5 posities van elk 20%;
