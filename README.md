@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 215 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 219 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -211,6 +211,11 @@ Onder **Portfolio** staan drie tabbladen: je eigen portfolio, het **€100k-spel
   korte-termijn koopsignaal die vandaag tussen +0,2% en +5% staan (momentum), max. 5 posities van elk 20%;
   na een verkoop 2 uur niet terugkopen. Aandelen alleen als hun beurs open is, crypto 24/7, nooit op
   voorbeeldkoersen. Hooguit één ronde per 8 minuten (Postgres advisory lock).
+- **De bot leert** (`lib/engine/learn.ts`): bij elke aankoop bewaart hij de kenmerken (signaalscore, bewezen,
+  stijging vandaag, RSI, Fear & Greed, nieuwssentiment, beweeglijkheid, S&P 500/Bitcoin vandaag, tijdstip).
+  Uit elke verkoop leert hij per kenmerk het gemiddelde resultaat, voorzichtig naar 0 getrokken bij weinig trades
+  (n/(n+8)). Dat verwachte resultaat telt mee in de score; na 20 afgesloten trades slaat hij kansen over waarvan
+  hij verlies verwacht. Op de Bot-pagina staat "Wat de bot geleerd heeft".
 
 ## Verkoopmeldingen (push)
 

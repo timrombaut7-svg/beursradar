@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Activity, Bot, ListOrdered } from "lucide-react";
-import { useBot } from "@/lib/hooks";
+import { Activity, Bot, Brain, ListOrdered } from "lucide-react";
+import { useBot, type BotState } from "@/lib/hooks";
 import { BOT_RULES } from "@/lib/engine/paper";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -67,6 +67,8 @@ export function BotView() {
           )}
         </CardBody>
       </Card>
+
+      <Learned model={b.learned} />
 
       <Card>
         <CardHeader icon={<Bot className="h-4 w-4" />} title={`Open posities (${b.positions.length}/${BOT_RULES.maxPositions})`} subtitle={`Cash: ${eur(b.cashEur)}`} />
@@ -141,6 +143,11 @@ export function BotView() {
               {(BOT_RULES.target2Pct * 100).toLocaleString("nl-NL")}% verkoopt hij alles.
             </li>
             <li>Bij −{(BOT_RULES.stopPct * 100).toLocaleString("nl-NL")}% gaat hij er meteen uit, ook als het signaal omslaat. Na een dag houdt hij niets meer vast.</li>
+            <li>
+              Hij leert van elke trade: bij een aankoop onthoudt hij wat er speelde (signaal, stijging vandaag, RSI, stemming op de markt, nieuws,
+              beweeglijkheid, de hele markt en het tijdstip), en na de verkoop of het winst gaf. Wat vaak winst gaf, kiest hij vaker; wat verlies gaf, laat hij
+              na genoeg ervaring liggen.
+            </li>
             <li>Na een verkoop koopt hij hetzelfde aandeel {BOT_RULES.cooldownMinutes / 60} uur niet terug. Aandelen handelt hij alleen als hun beurs open is, crypto 24/7.</li>
           </ul>
           <p className="mt-2 text-xs text-muted">
@@ -149,5 +156,51 @@ export function BotView() {
         </CardBody>
       </Card>
     </div>
+  );
+}
+
+function Learned({ model }: { model: BotState["learned"] }) {
+  const solid = model.buckets.filter((b) => b.n >= 3);
+  const good = solid.filter((b) => b.edgePct > 0).slice(0, 4);
+  const bad = solid.filter((b) => b.edgePct < 0).slice(-4).reverse();
+  const pct = (v: number) => `${v >= 0 ? "+" : ""}${(v * 100).toLocaleString("nl-NL", { maximumFractionDigits: 2 })}%`;
+  const row = (b: (typeof solid)[number]) => (
+    <li key={b.bucket} className="flex items-center justify-between gap-3 py-1.5 text-sm">
+      <span className="min-w-0">
+        {b.label}
+        <span className="block text-[11px] text-muted">
+          {b.n} trades · {Math.round(b.winRate * 100)}% winst
+        </span>
+      </span>
+      <span className={cn("shrink-0 font-mono text-xs font-semibold tabular", tone(b.avgPct))}>{pct(b.avgPct)} gem.</span>
+    </li>
+  );
+  return (
+    <Card>
+      <CardHeader
+        icon={<Brain className="h-4 w-4" />}
+        title="Wat de bot geleerd heeft"
+        subtitle={model.samples ? `Uit ${model.samples} afgesloten trades` : "Na elke verkochte trade wordt hij slimmer"}
+      />
+      <CardBody>
+        {solid.length === 0 ? (
+          <p className="text-sm text-muted">
+            Nog te weinig ervaring. Na een paar afgesloten trades zie je hier wat goed werkt (bijvoorbeeld &ldquo;positief nieuws&rdquo; of &ldquo;hele markt
+            stijgt&rdquo;) en wat niet, en past de bot zijn keuzes daarop aan.
+          </p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-bull">Werkt goed</p>
+              {good.length ? <ul className="divide-y divide-border">{good.map(row)}</ul> : <p className="text-sm text-muted">Nog niets duidelijks.</p>}
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-bear">Werkt slecht</p>
+              {bad.length ? <ul className="divide-y divide-border">{bad.map(row)}</ul> : <p className="text-sm text-muted">Nog niets duidelijks.</p>}
+            </div>
+          </div>
+        )}
+      </CardBody>
+    </Card>
   );
 }

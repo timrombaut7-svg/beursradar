@@ -4,6 +4,9 @@ import { getSignals, isBuySignal } from "@/lib/engine/signals";
 import { universeAssets } from "@/lib/api/livePrices";
 import { BOT_RULES, botDecide, dayTradeLevels, FEE, replayTrades, START_CASH, type BotCandidate, type BotQuote } from "@/lib/engine/paper";
 import { eurQuotes } from "./paperPrices";
+import { getAnalysis } from "@/lib/engine/analyze";
+import { adjustScore, learn, type LearnedModel, type TradeFeatures } from "@/lib/engine/learn";
+import type { Prisma } from "@/lib/generated/prisma/client";
 
 /** Minimaal zoveel minuten tussen twee rondes (de route is openbaar). */
 const MIN_ROUND_MINUTES = 8;
@@ -28,7 +31,9 @@ export async function runBot(now = new Date()): Promise<{ ran: boolean; reason?:
     const { cashEur } = replayTrades(trades);
 
     const assets = universeAssets();
-    const [signals, quotes] = await Promise.all([getSignals(assets), eurQuotes(assets)]);
+    const [signals, quotes] = await Promise.all([getSignals(assets), eurQuotes([...assets, { symbol: "^GSPC", type: "stock" }])]);
+    const model = learnFrom(trades);
+    const marketChange = { stock: quotes["stock:^GSPC"]?.changePct ?? null, crypto: quotes["crypto:BTC"]?.changePct ?? null };
     const botQuotes: Record<string, BotQuote> = {};
     for (const [k, q] of Object.entries(quotes)) {
       const signal = signals.find((s) => `${s.type}:${s.symbol}` === k);
@@ -40,25 +45,51 @@ export async function runBot(now = new Date()): Promise<{ ran: boolean; reason?:
     }
     // Daytrader: een korte-termijn koopsignaal én het stijgt vandaag al (momentum), maar niet te ver doorgeschoten.
     // Een signaal dat de historische toets haalde en een sterkere stijging vandaag gaan voor.
-    const candidates: BotCandidate[] = signals.flatMap((s) => {
+    const base = signals.flatMap((s) => {
       const k = `${s.type}:${s.symbol}`;
       const q = quotes[k];
       const bq = botQuotes[k];
       if (!q || !bq || s.etf || !isBuySignal(s, "short", false)) return [];
       if (q.changePct < BOT_RULES.minDayChangePct || q.changePct > BOT_RULES.maxDayChangePct) return [];
-      const proven = s.evidence.short.verdict === "proven" ? 15 : 0;
-      return [
-        {
-          symbol: s.symbol,
-          type: s.type,
-          name: s.name,
-          priceEur: q.priceEur,
-          ...dayTradeLevels(q.priceEur),
-          score: s.shortTerm.score + proven + q.changePct * 5,
-          tradable: bq.tradable,
-        },
-      ];
+      return [{ s, q, bq }];
     });
+    // Alles wat invloed kan hebben (RSI, stemming, nieuws, beweeglijkheid, de hele markt, het tijdstip)
+    // vastleggen, en de score bijsturen met wat de bot uit eerdere trades leerde
+    const featuresOf = new Map<string, TradeFeatures>();
+    const candidates: BotCandidate[] = (
+      await Promise.all(
+        base.map(async ({ s, q, bq }) => {
+          const a = await getAnalysis(s.symbol, s.type).catch(() => null);
+          const features: TradeFeatures = {
+            score: s.shortTerm.score,
+            proven: s.evidence.short.verdict === "proven",
+            dayChangePct: q.changePct,
+            type: s.type,
+            rsi: a?.technical.rsi ?? null,
+            fearGreed: a?.sentiment.fearGreed.source === "live" ? a.sentiment.fearGreed.value : null,
+            news: a && a.sentiment.news.length ? a.sentiment.newsScore : null,
+            volatility: a?.risk.volatility30d ?? null,
+            marketChangePct: marketChange[s.type],
+            hourUtc: now.getUTCHours(),
+          };
+          const proven = features.proven ? 15 : 0;
+          const adjusted = adjustScore(model, features, s.shortTerm.score + proven + q.changePct * 5);
+          if (!adjusted) return null; // ervaring zegt: dit soort trades kost geld
+          featuresOf.set(`${s.type}:${s.symbol}`, features);
+          const pct = (adjusted.edge * 100).toLocaleString("nl-NL", { maximumFractionDigits: 2, signDisplay: "always" });
+          return {
+            symbol: s.symbol,
+            type: s.type,
+            name: s.name,
+            priceEur: q.priceEur,
+            ...dayTradeLevels(q.priceEur),
+            score: adjusted.score,
+            tradable: bq.tradable,
+            note: model.samples ? `ervaring: ${pct}% verwacht` : undefined,
+          } satisfies BotCandidate;
+        }),
+      )
+    ).filter((c): c is NonNullable<typeof c> => c !== null);
     const recentSells: Record<string, Date> = {};
     for (const t of trades) if (t.side === "sell") recentSells[`${t.type}:${t.symbol}`] = t.createdAt;
 
@@ -77,7 +108,19 @@ export async function runBot(now = new Date()): Promise<{ ran: boolean; reason?:
         const feeEur = a.quantity * a.priceEur * FEE;
         const pnlEur = a.quantity * (a.priceEur - pos.entryPriceEur) - feeEur - a.quantity * pos.entryPriceEur * FEE;
         await db.botTrade.create({
-          data: { symbol: a.symbol, type: a.type, name: pos.name, side: "sell", quantity: a.quantity, priceEur: a.priceEur, feeEur, reason: a.reason, pnlEur },
+          data: {
+            symbol: a.symbol,
+            type: a.type,
+            name: pos.name,
+            side: "sell",
+            quantity: a.quantity,
+            priceEur: a.priceEur,
+            feeEur,
+            reason: a.reason,
+            pnlEur,
+            // De kenmerken van de aankoop gaan mee: zo leert de bot wat welk resultaat gaf
+            features: (pos.features ?? undefined) as Prisma.InputJsonValue | undefined,
+          },
         });
         if (a.closes) await db.botPosition.delete({ where: { id: pos.id } });
         else
@@ -101,6 +144,7 @@ export async function runBot(now = new Date()): Promise<{ ran: boolean; reason?:
             stopLossEur: c.stopLossEur,
             target1Eur: c.target1Eur,
             target2Eur: c.target2Eur,
+            features: (featuresOf.get(`${c.type}:${c.symbol}`) ?? undefined) as Prisma.InputJsonValue | undefined,
           },
         });
       }
@@ -115,6 +159,18 @@ export async function runBot(now = new Date()): Promise<{ ran: boolean; reason?:
   } finally {
     await db.$queryRaw`SELECT pg_advisory_unlock(${LOCK_ID})`;
   }
+}
+
+/** Wat de bot geleerd heeft: elke verkoop met de kenmerken van de aankoop en het resultaat in %. */
+export function learnFrom(trades: { side: string; quantity: number; priceEur: number; feeEur: number; pnlEur: number | null; features: unknown }[]): LearnedModel {
+  return learn(
+    trades.flatMap((t) => {
+      if (t.side !== "sell" || t.pnlEur === null || !t.features) return [];
+      // Instapwaarde = opbrengst − winst − kosten
+      const cost = t.quantity * t.priceEur - t.pnlEur - t.feeEur;
+      return cost > 0 ? [{ features: t.features as TradeFeatures, pnlPct: t.pnlEur / cost }] : [];
+    }),
+  );
 }
 
 /** Alles wat de Bot-pagina toont. */
@@ -154,5 +210,6 @@ export async function getBotState() {
     },
     equity: [{ t: equity[0]?.createdAt.getTime() ?? Date.now(), v: START_CASH }, ...equity.map((e) => ({ t: e.createdAt.getTime(), v: e.equityEur }))],
     lastRunAt: equity[equity.length - 1]?.createdAt.getTime() ?? null,
+    learned: learnFrom(trades),
   };
 }

@@ -172,6 +172,8 @@ model BotTrade {
   reason    String
   /// Bij een verkoop: winst of verlies in euro ten opzichte van de instapprijs
   pnlEur    Float?
+  /// Wat er speelde bij de aankoop (signaal, momentum, stemming, nieuws, …): daar leert de bot van
+  features  Json?
   createdAt DateTime @default(now())
 
   @@index([createdAt])
@@ -190,6 +192,8 @@ model BotPosition {
   target2Eur    Float
   /// Al de helft verkocht bij koersdoel 1 (en de stop naar de instapprijs gezet)?
   partialTaken  Boolean  @default(false)
+  /// Kenmerken op het moment van kopen (zie lib/engine/learn.ts)
+  features      Json?
   openedAt      DateTime @default(now())
 
   @@unique([symbol, type])

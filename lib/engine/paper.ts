@@ -152,6 +152,8 @@ export interface BotCandidate {
   /** Hoe sterker het koopsignaal, hoe eerder de bot koopt */
   score: number;
   tradable: boolean;
+  /** Extra uitleg bij de aankoop (bijv. wat de bot uit ervaring verwacht) */
+  note?: string;
 }
 
 export type BotAction =
@@ -230,7 +232,12 @@ export function botDecide(
     const size = Math.min(cash, equity * BOT_RULES.positionPct);
     if (size < BOT_RULES.minOrderEur) break;
     const quantity = size / (c.priceEur * (1 + FEE));
-    actions.push({ kind: "buy", candidate: c, quantity, reason: `Koopsignaal en stijgt vandaag (score ${c.score > 0 ? "+" : ""}${Math.round(c.score)})` });
+    actions.push({
+      kind: "buy",
+      candidate: c,
+      quantity,
+      reason: `Koopsignaal en stijgt vandaag (score ${c.score > 0 ? "+" : ""}${Math.round(c.score)})${c.note ? ` · ${c.note}` : ""}`,
+    });
     cash -= size;
     open++;
   }
