@@ -18,7 +18,10 @@ export const NAV = [
 ];
 
 export function isActive(pathname: string, href: string): boolean {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  if (href === "/") return pathname === "/";
+  // Het €100k-spel en de trading bot horen bij Portfolio
+  if (href === "/portfolio") return ["/portfolio", "/spel", "/bot"].some((p) => pathname.startsWith(p));
+  return pathname.startsWith(href);
 }
 
 export function Header() {

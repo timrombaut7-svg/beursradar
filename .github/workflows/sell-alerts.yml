@@ -1,15 +1,20 @@
-name: Verkoopmeldingen
+name: Achtergrondtaken
 
-# Elk half uur: Beursradar bekijkt de posities van iedereen met meldingen aan
-# en stuurt een pushmelding als iets verkocht moet worden.
+# Elk half uur:
+#  - de trading bot doet een ronde (kopen/verkopen met zijn eigen €100.000 nepgeld);
+#  - Beursradar bekijkt de posities van iedereen met meldingen aan en stuurt een
+#    pushmelding als iets verkocht moet worden.
 on:
   schedule:
     - cron: "7,37 * * * *"
   workflow_dispatch:
 
 jobs:
-  check:
+  run:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - run: curl -fsS --max-time 120 https://beursradar.vercel.app/api/cron/sell-alerts
+      - name: Trading bot
+        run: curl -fsS --max-time 120 https://beursradar.vercel.app/api/cron/bot || true
+      - name: Verkoopmeldingen
+        run: curl -fsS --max-time 120 https://beursradar.vercel.app/api/cron/sell-alerts

@@ -59,3 +59,9 @@ export function toneOf(v: number, neutralBand = 0): "bull" | "bear" | "hold" {
 export const TONE_TEXT = { bull: "text-bull", bear: "text-bear", hold: "text-hold" } as const;
 export const TONE_BG = { bull: "bg-bull/15", bear: "bg-bear/15", hold: "bg-hold/15" } as const;
 export const TONE_BORDER = { bull: "border-bull/40", bear: "border-bear/40", hold: "border-hold/40" } as const;
+
+/** Euro-bedrag: twee decimalen, behalve voor heel kleine prijzen per stuk ("€ 0,0712"). */
+export function formatEur(v: number): string {
+  const small = v !== 0 && Math.abs(v) < 1;
+  return v.toLocaleString("nl-NL", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: small ? 6 : 2 });
+}
