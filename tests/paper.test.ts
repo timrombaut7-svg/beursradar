@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BOT_RULES, FEE, START_CASH, botDecide, checkOrder, replayTrades, type BotCandidate, type BotPositionState } from "@/lib/engine/paper";
+import { BOT_RULES, FEE, START_CASH, botDecide, breakEven, checkOrder, dayTradeLevels, replayTrades, type BotCandidate, type BotPositionState } from "@/lib/engine/paper";
 
 const trade = (side: "buy" | "sell", quantity: number, priceEur: number, symbol = "AAPL") => ({
   symbol,
@@ -56,7 +56,7 @@ describe("trading bot", () => {
     target1Eur: 108,
     target2Eur: 115,
     partialTaken: false,
-    openedAt: new Date(now.getTime() - 2 * 86_400_000),
+    openedAt: new Date(now.getTime() - 2 * 3_600_000),
     ...over,
   });
   const quote = (priceEur: number, extra: Partial<{ tradable: boolean; sellSignal: boolean }> = {}) => ({
@@ -81,14 +81,14 @@ describe("trading bot", () => {
   });
 
   it("verkoopt bij koersdoel 1 de helft en zet de stop op de instapprijs", () => {
-    expect(botDecide([pos()], 0, quote(109), [], now)).toMatchObject([{ kind: "sell", quantity: 50, closes: false, moveStopTo: 100 }]);
+    expect(botDecide([pos()], 0, quote(109), [], now)).toMatchObject([{ kind: "sell", quantity: 50, closes: false, moveStopTo: breakEven(100) }]);
     // Daarna niet nog eens de helft
     expect(botDecide([pos({ partialTaken: true, quantity: 50, stopLossEur: 100 })], 0, quote(110), [], now)).toEqual([]);
   });
 
   it("stapt uit als het signaal omslaat of de trade te lang duurt", () => {
     expect(botDecide([pos()], 0, quote(101, { sellSignal: true }), [], now)[0]).toMatchObject({ kind: "sell", closes: true });
-    const old = pos({ openedAt: new Date(now.getTime() - (BOT_RULES.maxHoldDays + 1) * 86_400_000) });
+    const old = pos({ openedAt: new Date(now.getTime() - (BOT_RULES.maxHoldHours + 1) * 3_600_000) });
     expect(botDecide([old], 0, quote(101), [], now)[0]).toMatchObject({ kind: "sell", closes: true });
   });
 
@@ -113,5 +113,35 @@ describe("trading bot", () => {
   it("gebruikt geld van een verkoop meteen voor een nieuwe kans", () => {
     const actions = botDecide([pos()], 0, quote(94), [cand("X", 30)], now);
     expect(actions.map((a) => a.kind)).toEqual(["sell", "buy"]);
+  });
+});
+
+describe("daytrader", () => {
+  const now = new Date("2026-11-12T12:00:00Z");
+  it("zet kleine, vaste winstdoelen en een strakke stop", () => {
+    const l = dayTradeLevels(100);
+    expect(l.stopLossEur).toBeCloseTo(99, 6);
+    expect(l.target1Eur).toBeCloseTo(100.8, 6);
+    expect(l.target2Eur).toBeCloseTo(101.5, 6);
+    // Na koersdoel 1 staat de stop net boven de instapprijs: kosten heen en terug gedekt
+    expect(breakEven(100)).toBeCloseTo(100.2, 6);
+  });
+
+  it("koopt niet terug wat hij net verkocht heeft", () => {
+    const c: BotCandidate = { symbol: "SOL", type: "crypto", name: "Solana", priceEur: 100, ...dayTradeLevels(100), score: 50, tradable: true };
+    const justSold = { "crypto:SOL": new Date(now.getTime() - 30 * 60_000) };
+    expect(botDecide([], START_CASH, {}, [c], now, justSold)).toEqual([]);
+    const longAgo = { "crypto:SOL": new Date(now.getTime() - (BOT_RULES.cooldownMinutes + 1) * 60_000) };
+    expect(botDecide([], START_CASH, {}, [c], now, longAgo)).toHaveLength(1);
+  });
+
+  it("verkoopt en koopt niet hetzelfde in één ronde", () => {
+    const p: BotPositionState = {
+      symbol: "SOL", type: "crypto", name: "Solana", quantity: 10, entryPriceEur: 100, ...dayTradeLevels(100), partialTaken: false,
+      openedAt: new Date(now.getTime() - 3_600_000),
+    };
+    const c: BotCandidate = { symbol: "SOL", type: "crypto", name: "Solana", priceEur: 98, ...dayTradeLevels(98), score: 80, tradable: true };
+    const actions = botDecide([p], 0, { "crypto:SOL": { priceEur: 98, tradable: true, sellSignal: false } }, [c], now);
+    expect(actions.map((a) => a.kind)).toEqual(["sell"]);
   });
 });

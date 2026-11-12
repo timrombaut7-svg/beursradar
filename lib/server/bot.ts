@@ -1,19 +1,19 @@
 import type { AssetType } from "@/types";
 import { getDb } from "@/lib/db";
 import { getSignals, isBuySignal } from "@/lib/engine/signals";
-import { universeAssets, getRatesToEur } from "@/lib/api/livePrices";
-import { botDecide, FEE, replayTrades, START_CASH, type BotCandidate, type BotQuote } from "@/lib/engine/paper";
+import { universeAssets } from "@/lib/api/livePrices";
+import { BOT_RULES, botDecide, dayTradeLevels, FEE, replayTrades, START_CASH, type BotCandidate, type BotQuote } from "@/lib/engine/paper";
 import { eurQuotes } from "./paperPrices";
 
 /** Minimaal zoveel minuten tussen twee rondes (de route is openbaar). */
-const MIN_ROUND_MINUTES = 10;
+const MIN_ROUND_MINUTES = 8;
 const LOCK_ID = 424242;
 
 const isSell = (a: string) => a === "SELL" || a === "STRONG_SELL";
 
 /**
  * Eén ronde van de trading bot: koersen en signalen ophalen, beslissen (botDecide) en uitvoeren.
- * Draait elk half uur via GitHub Actions. Alleen op live koersen; aandelen alleen als hun beurs open is.
+ * Draait elke 10 minuten via GitHub Actions. Alleen op live koersen; aandelen alleen als hun beurs open is.
  */
 export async function runBot(now = new Date()): Promise<{ ran: boolean; reason?: string; trades: number; equityEur?: number }> {
   const db = getDb();
@@ -28,7 +28,7 @@ export async function runBot(now = new Date()): Promise<{ ran: boolean; reason?:
     const { cashEur } = replayTrades(trades);
 
     const assets = universeAssets();
-    const [signals, quotes, toEur] = await Promise.all([getSignals(assets), eurQuotes(assets), getRatesToEur()]);
+    const [signals, quotes] = await Promise.all([getSignals(assets), eurQuotes(assets)]);
     const botQuotes: Record<string, BotQuote> = {};
     for (const [k, q] of Object.entries(quotes)) {
       const signal = signals.find((s) => `${s.type}:${s.symbol}` === k);
@@ -38,27 +38,29 @@ export async function runBot(now = new Date()): Promise<{ ran: boolean; reason?:
         sellSignal: Boolean(signal && signal.pricesLive && isSell(signal.shortTerm.advice)),
       };
     }
+    // Daytrader: een korte-termijn koopsignaal én het stijgt vandaag al (momentum), maar niet te ver doorgeschoten.
+    // Een signaal dat de historische toets haalde en een sterkere stijging vandaag gaan voor.
     const candidates: BotCandidate[] = signals.flatMap((s) => {
       const k = `${s.type}:${s.symbol}`;
-      const q = botQuotes[k];
-      const rate = toEur[s.currency];
-      // Snelle winst: korte-termijn koopsignalen; een signaal dat de historische toets haalde gaat voor
-      if (!q || !rate || s.etf || !isBuySignal(s, "short", false)) return [];
-      const proven = s.evidence.short.verdict === "proven" ? 25 : 0;
+      const q = quotes[k];
+      const bq = botQuotes[k];
+      if (!q || !bq || s.etf || !isBuySignal(s, "short", false)) return [];
+      if (q.changePct < BOT_RULES.minDayChangePct || q.changePct > BOT_RULES.maxDayChangePct) return [];
+      const proven = s.evidence.short.verdict === "proven" ? 15 : 0;
       return [
         {
           symbol: s.symbol,
           type: s.type,
           name: s.name,
           priceEur: q.priceEur,
-          stopLossEur: s.tradePlan.stopLoss * rate,
-          target1Eur: s.tradePlan.target1 * rate,
-          target2Eur: s.tradePlan.target2 * rate,
-          score: s.shortTerm.score + proven,
-          tradable: q.tradable,
+          ...dayTradeLevels(q.priceEur),
+          score: s.shortTerm.score + proven + q.changePct * 5,
+          tradable: bq.tradable,
         },
       ];
     });
+    const recentSells: Record<string, Date> = {};
+    for (const t of trades) if (t.side === "sell") recentSells[`${t.type}:${t.symbol}`] = t.createdAt;
 
     const actions = botDecide(
       positions.map((p) => ({ ...p, type: p.type as AssetType })),
@@ -66,6 +68,7 @@ export async function runBot(now = new Date()): Promise<{ ran: boolean; reason?:
       botQuotes,
       candidates,
       now,
+      recentSells,
     );
 
     for (const a of actions) {

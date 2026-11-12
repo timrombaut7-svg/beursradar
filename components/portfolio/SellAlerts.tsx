@@ -122,7 +122,7 @@ export function SellAlerts() {
         )}
         {state === "on" && (
           <div className="space-y-2">
-            <p className="text-bull">Meldingen staan aan op dit toestel. We kijken elk half uur naar je posities.</p>
+            <p className="text-bull">Meldingen staan aan op dit toestel. We kijken elke 10 minuten naar je posities.</p>
             <div className="flex flex-wrap gap-2">
               <Button onClick={test} disabled={busy}>
                 <BellRing className="h-4 w-4" /> Stuur testmelding

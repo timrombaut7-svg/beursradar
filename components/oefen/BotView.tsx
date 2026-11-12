@@ -44,7 +44,7 @@ export function BotView() {
         <CardHeader
           icon={<Activity className="h-4 w-4" />}
           title="Waarde van de bot"
-          subtitle={b.lastRunAt ? `Laatste ronde ${timeAgo(b.lastRunAt)} · elke 30 minuten een nieuwe ronde` : "De eerste ronde begint binnen een half uur"}
+          subtitle={b.lastRunAt ? `Laatste ronde ${timeAgo(b.lastRunAt)} · elke 10 minuten een nieuwe ronde` : "De eerste ronde begint binnen 10 minuten"}
         />
         <CardBody>
           {b.equity.length > 2 ? (
@@ -63,7 +63,7 @@ export function BotView() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="text-sm text-muted">De grafiek verschijnt na een paar rondes (elk half uur één).</p>
+            <p className="text-sm text-muted">De grafiek verschijnt na een paar rondes (elke 10 minuten één).</p>
           )}
         </CardBody>
       </Card>
@@ -71,7 +71,7 @@ export function BotView() {
       <Card>
         <CardHeader icon={<Bot className="h-4 w-4" />} title={`Open posities (${b.positions.length}/${BOT_RULES.maxPositions})`} subtitle={`Cash: ${eur(b.cashEur)}`} />
         {b.positions.length === 0 ? (
-          <p className="p-4 text-sm text-muted">De bot heeft nu niets in bezit. Hij koopt zodra er een sterk koopsignaal is (aandelen alleen als de beurs open is).</p>
+          <p className="p-4 text-sm text-muted">De bot heeft nu niets in bezit. Hij koopt zodra iets met een koopsignaal vandaag stijgt (aandelen alleen als de beurs open is).</p>
         ) : (
           <ul className="divide-y divide-border">
             {b.positions.map((p) => (
@@ -131,14 +131,17 @@ export function BotView() {
         <CardHeader title="Hoe werkt de bot?" />
         <CardBody>
           <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
-            <li>Hij begon met € 100.000 nepgeld en handelt helemaal zelf, elke 30 minuten, tegen echte live koersen (0,1% kosten per order).</li>
+            <li>Hij is een daytrader: hij begon met € 100.000 nepgeld en handelt helemaal zelf, elke 10 minuten, tegen echte live koersen (0,1% kosten per order).</li>
             <li>
-              Hij koopt de sterkste korte-termijn koopsignalen van de app (signalen die de historische toets haalden eerst), maximaal{" "}
+              Hij koopt aandelen en crypto met een koopsignaal die vandaag al stijgen (tussen +{BOT_RULES.minDayChangePct}% en +{BOT_RULES.maxDayChangePct}%), maximaal{" "}
               {BOT_RULES.maxPositions} tegelijk, elk {BOT_RULES.positionPct * 100}% van zijn geld.
             </li>
-            <li>Elke positie krijgt meteen een stop-loss en twee koersdoelen. Bij doel 1 verkoopt hij de helft en zet hij de stop op zijn instapprijs.</li>
-            <li>Hij verkoopt bij de stop-loss, bij doel 2, als het signaal omslaat naar verkopen, of na {BOT_RULES.maxHoldDays} dagen zonder resultaat.</li>
-            <li>Aandelen handelt hij alleen als hun beurs open is; crypto 24/7.</li>
+            <li>
+              Kleine winstjes: bij +{(BOT_RULES.target1Pct * 100).toLocaleString("nl-NL")}% verkoopt hij de helft en zet hij de stop net boven zijn instapprijs; bij +
+              {(BOT_RULES.target2Pct * 100).toLocaleString("nl-NL")}% verkoopt hij alles.
+            </li>
+            <li>Bij −{(BOT_RULES.stopPct * 100).toLocaleString("nl-NL")}% gaat hij er meteen uit, ook als het signaal omslaat. Na een dag houdt hij niets meer vast.</li>
+            <li>Na een verkoop koopt hij hetzelfde aandeel {BOT_RULES.cooldownMinutes / 60} uur niet terug. Aandelen handelt hij alleen als hun beurs open is, crypto 24/7.</li>
           </ul>
           <p className="mt-2 text-xs text-muted">
             Een bot die winst probeert te maken kan ook verlies maken. Dit is nepgeld om te leren: geen garantie en geen advies.

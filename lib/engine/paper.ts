@@ -88,13 +88,37 @@ export function checkOrder(
 // Trading bot
 // ---------------------------------------------------------------------------
 
-/** Spelregels van de bot: zoveel tegelijk, zo groot per positie, zo lang maximaal vasthouden. */
+/**
+ * Spelregels van de bot, een daytrader: kleine, snelle winstjes en nooit langer dan een dag vasthouden.
+ * Winstdoelen en stop-loss zijn vaste percentages vanaf de instapprijs (na 0,2% kosten heen en terug).
+ */
 export const BOT_RULES = {
   maxPositions: 5,
   positionPct: 0.2,
   minOrderEur: 500,
-  maxHoldDays: 20,
+  /** Daytrader: na 24 uur gaat alles eruit (aandelen bij de eerstvolgende opening) */
+  maxHoldHours: 24,
+  stopPct: 0.01,
+  target1Pct: 0.008,
+  target2Pct: 0.015,
+  /** Na een verkoop niet meteen hetzelfde aandeel terugkopen */
+  cooldownMinutes: 120,
+  /** Alleen kopen als het vandaag al stijgt, maar niet als het al te ver doorgeschoten is (in %) */
+  minDayChangePct: 0.2,
+  maxDayChangePct: 5,
 } as const;
+
+/** Stop-loss en koersdoelen van een daytrade, vanaf de instapprijs. */
+export function dayTradeLevels(priceEur: number) {
+  return {
+    stopLossEur: priceEur * (1 - BOT_RULES.stopPct),
+    target1Eur: priceEur * (1 + BOT_RULES.target1Pct),
+    target2Eur: priceEur * (1 + BOT_RULES.target2Pct),
+  };
+}
+
+/** Stop net boven de instapprijs, zodat ook de kosten gedekt zijn */
+export const breakEven = (entryPriceEur: number) => entryPriceEur * (1 + 2 * FEE);
 
 export interface BotPositionState {
   symbol: string;
@@ -136,9 +160,10 @@ export type BotAction =
 
 /**
  * Eén ronde van de bot. Eerst uitstappen (verlies beperken, winst pakken), dan het vrijgekomen
- * geld in de sterkste koopsignalen steken. De bot wil snel winst: korte trades met een harde
- * stop-loss, bij koersdoel 1 de helft verkopen en de stop naar de instapprijs (dan kan die trade
- * niet meer verliezen), bij koersdoel 2 alles verkopen.
+ * geld in de sterkste kansen van dit moment steken. Als daytrader pakt hij kleine winstjes:
+ * bij +0,8% de helft verkopen en de stop net boven de instapprijs (die trade kan dan niet meer
+ * verliezen), bij +1,5% alles; bij −1% eruit, en niets langer dan een dag vasthouden.
+ * `recentSells`: wanneer de bot een asset het laatst verkocht (om niet meteen terug te kopen).
  */
 export function botDecide(
   positions: BotPositionState[],
@@ -146,6 +171,7 @@ export function botDecide(
   quotes: Record<string, BotQuote>,
   candidates: BotCandidate[],
   now = new Date(),
+  recentSells: Record<string, Date> = {},
 ): BotAction[] {
   const actions: BotAction[] = [];
   let cash = cashEur;
@@ -160,11 +186,11 @@ export function botDecide(
       cash += p.quantity * price * (1 - FEE);
       open--;
     };
-    const days = (now.getTime() - p.openedAt.getTime()) / 86_400_000;
+    const hours = (now.getTime() - p.openedAt.getTime()) / 3_600_000;
     if (price <= p.stopLossEur) sellAll(p.partialTaken ? "Stop op instapprijs geraakt: rest verkocht zonder verlies" : "Stop-loss geraakt: verlies beperkt");
     else if (price >= p.target2Eur) sellAll("Koersdoel 2 bereikt: alle winst genomen");
     else if (q.sellSignal) sellAll("Signaal sloeg om naar verkopen");
-    else if (days > BOT_RULES.maxHoldDays) sellAll(`Na ${BOT_RULES.maxHoldDays} dagen geen doel bereikt: geld vrijgemaakt voor betere kansen`);
+    else if (hours > BOT_RULES.maxHoldHours) sellAll("Daytrader: niet langer dan een dag vasthouden, positie gesloten");
     else if (!p.partialTaken && price >= p.target1Eur) {
       const half = p.quantity / 2;
       actions.push({
@@ -175,7 +201,7 @@ export function botDecide(
         priceEur: price,
         reason: "Koersdoel 1 bereikt: helft verkocht, stop naar instapprijs",
         closes: false,
-        moveStopTo: p.entryPriceEur,
+        moveStopTo: breakEven(p.entryPriceEur),
       });
       cash += half * price * (1 - FEE);
     }
@@ -193,14 +219,18 @@ export function botDecide(
   const equity = cash + invested;
 
   const fresh = candidates
-    .filter((c) => c.tradable && !held.has(key(c)) && c.stopLossEur < c.priceEur && c.target1Eur > c.priceEur)
+    .filter((c) => {
+      const lastSell = recentSells[key(c)];
+      const cooling = lastSell && now.getTime() - lastSell.getTime() < BOT_RULES.cooldownMinutes * 60_000;
+      return c.tradable && !held.has(key(c)) && !sold.has(key(c)) && !cooling && c.stopLossEur < c.priceEur && c.target1Eur > c.priceEur;
+    })
     .sort((a, b) => b.score - a.score);
   for (const c of fresh) {
     if (open >= BOT_RULES.maxPositions) break;
     const size = Math.min(cash, equity * BOT_RULES.positionPct);
     if (size < BOT_RULES.minOrderEur) break;
     const quantity = size / (c.priceEur * (1 + FEE));
-    actions.push({ kind: "buy", candidate: c, quantity, reason: `Sterk koopsignaal (score ${c.score > 0 ? "+" : ""}${Math.round(c.score)})` });
+    actions.push({ kind: "buy", candidate: c, quantity, reason: `Koopsignaal en stijgt vandaag (score ${c.score > 0 ? "+" : ""}${Math.round(c.score)})` });
     cash -= size;
     open++;
   }

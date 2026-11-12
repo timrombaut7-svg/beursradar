@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Elk half uur aangeroepen (GitHub Actions, zie .github/workflows/sell-alerts.yml): stuurt verkoopmeldingen.
+ * Elke 10 minuten aangeroepen (GitHub Actions, zie .github/workflows/sell-alerts.yml): stuurt verkoopmeldingen.
  * Zonder geheim: het geeft alleen aantallen terug, en dubbele meldingen worden in de database tegengehouden.
  */
 export async function GET() {

@@ -12,7 +12,7 @@ export interface AlertCandidate {
 
 /**
  * Welke posities verdienen nu een melding? Alleen "verkopen" en "deels winst nemen", en niet
- * opnieuw als dezelfde melding er de afgelopen dagen al was (anders krijg je er elk half uur één).
+ * opnieuw als dezelfde melding er de afgelopen dagen al was (anders krijg je er elke ronde één).
  */
 export function alertsToSend(
   candidates: AlertCandidate[],
