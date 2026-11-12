@@ -174,3 +174,15 @@ export function useNewspaper() {
     refetchInterval: 60_000,
   });
 }
+
+export type GameState = Awaited<ReturnType<typeof import("@/lib/server/game").getGame>>;
+export type BotState = Awaited<ReturnType<typeof import("@/lib/server/bot").getBotState>>;
+
+/** Het €100.000-spel; koersen verversen elke 30 s. */
+export function useGame() {
+  return useQuery({ queryKey: ["game"], queryFn: () => getJson<GameState>("/api/game"), refetchInterval: 30_000 });
+}
+
+export function useBot() {
+  return useQuery({ queryKey: ["bot"], queryFn: () => getJson<BotState>("/api/bot"), refetchInterval: 60_000 });
+}

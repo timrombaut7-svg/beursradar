@@ -3,12 +3,14 @@ import { Briefcase } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { PortfolioView } from "@/components/portfolio/PortfolioView";
 import { StorageLabel } from "@/components/StorageBadge";
+import { PortfolioTabs } from "@/components/oefen/PortfolioTabs";
 
 export const metadata: Metadata = { title: "Portfolio simulator" };
 
 export default function PortfolioPage() {
   return (
     <div className="space-y-4">
+      <PortfolioTabs />
       <PageHeader
         icon={<Briefcase className="h-5 w-5" />}
         title="Portfolio simulator"

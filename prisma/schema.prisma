@@ -19,6 +19,7 @@ model Profile {
   user              User?
   pushSubscriptions PushSubscription[]
   sellAlerts        SellAlert[]
+  gameTrades        GameTrade[]
 }
 
 /// Account met gebruikersnaam en wachtwoord; bezit precies één profiel (portfolio + watchlist).
@@ -139,4 +140,67 @@ model SellAlert {
 model AppSecret {
   key   String @id
   value String
+}
+
+/// Een aankoop of verkoop in het €100.000-spel (bedragen in euro, inclusief kosten)
+model GameTrade {
+  id        String   @id @default(cuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  symbol    String
+  type      String
+  name      String
+  side      String
+  quantity  Float
+  priceEur  Float
+  feeEur    Float
+  createdAt DateTime @default(now())
+
+  @@index([profileId, createdAt])
+}
+
+/// Handel van de trading bot (één bot voor de hele app, met een eigen €100.000)
+model BotTrade {
+  id        String   @id @default(cuid())
+  symbol    String
+  type      String
+  name      String
+  side      String
+  quantity  Float
+  priceEur  Float
+  feeEur    Float
+  reason    String
+  /// Bij een verkoop: winst of verlies in euro ten opzichte van de instapprijs
+  pnlEur    Float?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Open positie van de trading bot, met zijn eigen stop-loss en koersdoelen (in euro)
+model BotPosition {
+  id            String   @id @default(cuid())
+  symbol        String
+  type          String
+  name          String
+  quantity      Float
+  entryPriceEur Float
+  stopLossEur   Float
+  target1Eur    Float
+  target2Eur    Float
+  /// Al de helft verkocht bij koersdoel 1 (en de stop naar de instapprijs gezet)?
+  partialTaken  Boolean  @default(false)
+  openedAt      DateTime @default(now())
+
+  @@unique([symbol, type])
+}
+
+/// Waarde van de bot na elke ronde, voor de grafiek
+model BotEquity {
+  id        String   @id @default(cuid())
+  equityEur Float
+  cashEur   Float
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
