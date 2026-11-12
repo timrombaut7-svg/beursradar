@@ -13,7 +13,7 @@ export default function BotPage() {
       <PageHeader
         icon={<Bot className="h-5 w-5" />}
         title="Trading bot"
-        subtitle="Een bot die helemaal zelf € 100.000 nepgeld beheert en zo snel mogelijk winst probeert te maken."
+        subtitle="Een daytrader-bot die helemaal zelf € 100.000 nepgeld beheert en elke dag kleine, snelle winstjes probeert te pakken."
       />
       <BotView />
     </div>

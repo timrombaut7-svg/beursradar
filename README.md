@@ -14,7 +14,7 @@ npm install
 cp .env.example .env.local   # optioneel: sleutels en database
 npm run db:migrate           # alleen als je DATABASE_URL gebruikt
 npm run dev                  # http://localhost:3000
-npm test             # 212 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
+npm test             # 215 unit/integratietests (Vitest); DB-tests draaien met TEST_DATABASE_URL
 npm run typecheck && npm run lint && npm run build
 ```
 
@@ -205,15 +205,16 @@ dan gebruiken we alle dagen. Dit is geen garantie: het laat zien wat er vroeger 
 Onder **Portfolio** staan drie tabbladen: je eigen portfolio, het **€100k-spel** (`/spel`) en de **trading bot** (`/bot`).
 - **Spel:** elk profiel krijgt € 100.000 nepgeld en koopt/verkoopt tegen de live koers (in euro, 0,1% kosten).
   Alleen de orders worden bewaard (`GameTrade`); cash en posities volgen daaruit (`replayTrades` in `lib/engine/paper.ts`).
-- **Bot:** één bot voor de hele app met een eigen € 100.000. Elk half uur (GitHub Action → `GET /api/cron/bot`)
-  beslist `botDecide`: uitstappen bij stop-loss, koersdoel 2, een verkoopsignaal of na 20 dagen; bij koersdoel 1
-  de helft verkopen en de stop naar de instapprijs; daarna kopen in de sterkste korte-termijn koopsignalen
-  (bewezen signalen eerst), max. 5 posities van elk 20%. Aandelen alleen als hun beurs open is, crypto 24/7,
-  nooit op voorbeeldkoersen. Hooguit één ronde per 10 minuten (Postgres advisory lock).
+- **Bot:** een daytrader, één voor de hele app, met een eigen € 100.000. Elke 10 minuten (GitHub Action → `GET /api/cron/bot`)
+  beslist `botDecide`: bij +0,8% de helft verkopen en de stop net boven de instapprijs, bij +1,5% alles verkopen,
+  bij −1% of een verkoopsignaal eruit, en niets langer dan 24 uur vasthouden. Daarna kopen: assets met een
+  korte-termijn koopsignaal die vandaag tussen +0,2% en +5% staan (momentum), max. 5 posities van elk 20%;
+  na een verkoop 2 uur niet terugkopen. Aandelen alleen als hun beurs open is, crypto 24/7, nooit op
+  voorbeeldkoersen. Hooguit één ronde per 8 minuten (Postgres advisory lock).
 
 ## Verkoopmeldingen (push)
 
-Op **Portfolio → Verkoopmeldingen** zet je pushmeldingen aan. Elk half uur roept een GitHub Action
+Op **Portfolio → Verkoopmeldingen** zet je pushmeldingen aan. Elke 10 minuten roept een GitHub Action
 (`.github/workflows/sell-alerts.yml`) `GET /api/cron/sell-alerts` aan; die berekent voor iedereen met
 meldingen hetzelfde verkoopadvies als op de Portfolio-pagina (`sellAdvice`) en stuurt een melding bij
 **verkopen** of **deels winst nemen** (`lib/server/push.ts`). Dezelfde melding komt pas na 72 uur opnieuw;

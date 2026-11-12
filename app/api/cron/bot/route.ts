@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Eén ronde van de trading bot, elk half uur aangeroepen door GitHub Actions (.github/workflows/sell-alerts.yml).
+ * Eén ronde van de trading bot, elke 10 minuten aangeroepen door GitHub Actions (.github/workflows/sell-alerts.yml).
  * Openbaar maar onschuldig: hooguit één ronde per 10 minuten, en nooit op voorbeeldkoersen.
  */
 export async function GET() {

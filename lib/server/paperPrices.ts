@@ -7,6 +7,8 @@ export interface EurQuote {
   price: number;
   currency: string;
   marketState: string;
+  /** Koersverandering vandaag in procenten (1.5 = +1,5%) */
+  changePct: number;
 }
 
 /** Live koersen omgerekend naar euro. Zonder live koers of wisselkoers ontbreekt een asset. */
@@ -17,7 +19,7 @@ export async function eurQuotes(assets: { symbol: string; type: AssetType }[]): 
   for (const p of live) {
     const rate = toEur[p.currency];
     if (!rate || !(p.price > 0)) continue;
-    out[`${p.type}:${p.symbol}`] = { priceEur: p.price * rate, price: p.price, currency: p.currency, marketState: p.marketState };
+    out[`${p.type}:${p.symbol}`] = { priceEur: p.price * rate, price: p.price, currency: p.currency, marketState: p.marketState, changePct: p.changePct };
   }
   return out;
 }

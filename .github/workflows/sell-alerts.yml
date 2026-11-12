@@ -1,12 +1,12 @@
 name: Achtergrondtaken
 
-# Elk half uur:
+# Elke 10 minuten:
 #  - de trading bot doet een ronde (kopen/verkopen met zijn eigen €100.000 nepgeld);
 #  - Beursradar bekijkt de posities van iedereen met meldingen aan en stuurt een
 #    pushmelding als iets verkocht moet worden.
 on:
   schedule:
-    - cron: "7,37 * * * *"
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 jobs:
