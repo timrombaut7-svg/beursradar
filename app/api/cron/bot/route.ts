@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Eén ronde van de trading bot, elke 10 minuten aangeroepen door GitHub Actions (.github/workflows/sell-alerts.yml).
- * Openbaar maar onschuldig: hooguit één ronde per 10 minuten, en nooit op voorbeeldkoersen.
+ * Eén ronde van de trading bot, elke minuut aangeroepen door GitHub Actions (.github/workflows/sell-alerts.yml).
+ * Openbaar maar onschuldig: hooguit één ronde per 45 seconden, en nooit op voorbeeldkoersen.
  */
 export async function GET() {
   if (!dbEnabled()) return NextResponse.json({ error: "geen database" }, { status: 503 });

@@ -44,7 +44,7 @@ export function BotView() {
         <CardHeader
           icon={<Activity className="h-4 w-4" />}
           title="Waarde van de bot"
-          subtitle={b.lastRunAt ? `Laatste ronde ${timeAgo(b.lastRunAt)} · elke 10 minuten een nieuwe ronde` : "De eerste ronde begint binnen 10 minuten"}
+          subtitle={b.lastRunAt ? `Laatste ronde ${timeAgo(b.lastRunAt)} · de bot kijkt elke minuut` : "De eerste ronde begint zo"}
         />
         <CardBody>
           {b.equity.length > 2 ? (
@@ -63,7 +63,7 @@ export function BotView() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="text-sm text-muted">De grafiek verschijnt na een paar rondes (elke 10 minuten één).</p>
+            <p className="text-sm text-muted">De grafiek verschijnt na een paar rondes (elke minuut één).</p>
           )}
         </CardBody>
       </Card>
@@ -133,7 +133,7 @@ export function BotView() {
         <CardHeader title="Hoe werkt de bot?" />
         <CardBody>
           <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
-            <li>Hij is een daytrader: hij begon met € 100.000 nepgeld en handelt helemaal zelf, elke 10 minuten, tegen echte live koersen (0,1% kosten per order).</li>
+            <li>Hij is een daytrader: hij begon met € 100.000 nepgeld en handelt helemaal zelf, elke minuut, dag en nacht, tegen echte live koersen (0,1% kosten per order).</li>
             <li>
               Hij koopt aandelen en crypto met een koopsignaal die vandaag al stijgen (tussen +{BOT_RULES.minDayChangePct}% en +{BOT_RULES.maxDayChangePct}%), maximaal{" "}
               {BOT_RULES.maxPositions} tegelijk, elk {BOT_RULES.positionPct * 100}% van zijn geld.

@@ -145,3 +145,15 @@ describe("daytrader", () => {
     expect(actions.map((a) => a.kind)).toEqual(["sell"]);
   });
 });
+
+describe("grafiek van de bot", () => {
+  it("dunt veel punten uit en houdt altijd het laatste punt", async () => {
+    const { thin } = await import("@/lib/server/bot");
+    const pts = Array.from({ length: 1000 }, (_, i) => i);
+    const t = thin(pts, 300);
+    expect(t.length).toBeLessThanOrEqual(301);
+    expect(t[0]).toBe(0);
+    expect(t[t.length - 1]).toBe(999);
+    expect(thin([1, 2, 3], 300)).toEqual([1, 2, 3]);
+  });
+});
